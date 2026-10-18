@@ -20,18 +20,34 @@ export const requestStatuses = {
   cancelled: { label: 'Отменена', color: 'default' },
 }
 
+export const requestSortOptions = [
+  { value: 'relevance', label: 'По актуальности', short: 'Актуальные', hint: 'Сначала используемые, затем ближайшие, на модерации и архив' },
+  { value: 'date-asc', label: 'Дата: сначала ранние', short: 'Сначала ранние', hint: 'От самой ранней даты к самой поздней' },
+  { value: 'date-desc', label: 'Дата: сначала поздние', short: 'Сначала поздние', hint: 'От самой поздней даты к самой ранней' },
+]
+
 // Группа задаётся данными, а не вычисляется из даты: прошедшие заявки
 // остаются подтверждёнными до явного изменения их состояния.
-export function groupRequests(requests, source) {
-  const sourceRequests = requests.filter((request) => request.source === source)
-  return requestGroups.map((group) => ({
-    ...group,
-    requests: sourceRequests
-      .filter((request) => request.statusGroup === group.key)
-      .sort((a, b) => group.key === 'archive'
-        ? Date.parse(b.archivedAt) - Date.parse(a.archivedAt)
-        : Date.parse(a.startsAt) - Date.parse(b.startsAt)),
-  }))
+// Актуальность: используется сейчас → подтверждены → на модерации → архив.
+const relevanceRank = (request) => {
+  if (request.status === 'active') return 0
+  if (request.statusGroup === 'confirmed') return 1
+  return request.statusGroup === 'moderation' ? 2 : 3
+}
+const byStart = (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)
+const comparators = {
+  relevance: (a, b) => relevanceRank(a) - relevanceRank(b) || (a.statusGroup === 'archive'
+    ? Date.parse(b.archivedAt) - Date.parse(a.archivedAt)
+    : byStart(a, b)),
+  'date-asc': byStart,
+  'date-desc': (a, b) => byStart(b, a),
+}
+
+// Единая лента заявок категории с фильтром по статусу и сортировкой.
+export function feedRequests(requests, source, filter = 'all', sort = 'relevance') {
+  return requests
+    .filter((request) => request.source === source && (filter === 'all' || request.statusGroup === filter))
+    .sort(comparators[sort])
 }
 
 const TIME_ZONE = 'Asia/Vladivostok'
@@ -93,7 +109,7 @@ export function requestSteps(request) {
 
 // Чипы статусов над списком: «Все» показывает секции, остальные — плоский список одной группы.
 export const requestFilters = [
-  { value: 'all', label: 'Все' },
+  { value: 'all', label: 'Все статусы' },
   ...requestGroups.map((group) => ({ value: group.key, label: group.label })),
 ]
 
