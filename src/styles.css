@@ -263,6 +263,8 @@ button, input, textarea, select { font: inherit; }
 }
 .nav-item span { font-size: 11px; line-height: 16px; }
 .nav-item.active { color: #1677ff; }
+.nav-item .nav-icon { position: relative; display: block; line-height: 0; }
+.nav-item .nav-badge { position: absolute; top: -2px; left: 58%; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #cf1322; box-sizing: content-box; }
 .nav-item img {
   filter: grayscale(1) brightness(0);
   transition: filter 180ms ease;

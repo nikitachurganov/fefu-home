@@ -129,11 +129,11 @@ export function pickHighlights(requests, limit = 5) {
     .slice(0, limit)
 }
 
-const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+export const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 
 // Дата и время в часовом поясе кампуса: sv-SE даёт стабильный формат «ГГГГ-ММ-ДД ЧЧ:ММ:СС».
-function parts(iso) {
+export function parts(iso) {
   const [key, time] = new Date(iso).toLocaleString('sv-SE', { timeZone: TIME_ZONE }).split(' ')
   const [year, month, day] = key.split('-').map(Number)
   return { key, year, month, day, time: time.slice(0, 5) }

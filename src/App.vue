@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import RequestsPage from './components/RequestsPage.vue'
+import NotificationsPage from './components/NotificationsPage.vue'
+import { unreadCount } from './data/notificationStore'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
 import helpIcon from './assets/figma/help.svg'
@@ -25,6 +27,8 @@ const activeNav = ref('home')
 const isAuthenticated = ref(false)
 const statusText = ref('')
 const serviceQuery = ref('')
+// Заявка, которую нужно открыть после перехода из уведомления.
+const focusRequestId = ref(null)
 
 // Временный набор данных для демонстрации личного кабинета.
 const services = [
@@ -66,6 +70,11 @@ function authenticate() {
   isAuthenticated.value = true
   noticeVisible.value = false
   statusText.value = ''
+}
+
+function openRequestFromNotification(id) {
+  focusRequestId.value = id
+  selectNav('requests')
 }
 
 function openService(label) {
@@ -205,7 +214,21 @@ function openService(label) {
         />
       </section>
 
-      <RequestsPage v-else-if="activeNav === 'requests'" :authenticated="isAuthenticated" @login="authenticate" />
+      <RequestsPage
+        v-else-if="activeNav === 'requests'"
+        :authenticated="isAuthenticated"
+        :focus-request-id="focusRequestId"
+        @login="authenticate"
+        @focused="focusRequestId = null"
+      />
+
+      <NotificationsPage
+        v-else-if="activeNav === 'notifications'"
+        :authenticated="isAuthenticated"
+        @login="authenticate"
+        @open-request="openRequestFromNotification"
+        @open-schedule="openService('Расписание')"
+      />
 
       <section v-else class="empty-page" :aria-labelledby="`${activeNav}-title`">
         <h1 :id="`${activeNav}-title`">{{ currentTitle }}</h1>
@@ -223,9 +246,13 @@ function openService(label) {
         class="nav-item"
         :class="{ active: activeNav === item.id }"
         :aria-current="activeNav === item.id ? 'page' : undefined"
+        :aria-label="item.id === 'notifications' && unreadCount ? `Уведомления, непрочитанных: ${unreadCount}` : undefined"
         @click="selectNav(item.id)"
       >
-        <img :src="item.icon" alt="" aria-hidden="true" />
+        <span class="nav-icon">
+          <img :src="item.icon" alt="" aria-hidden="true" />
+          <span v-if="item.id === 'notifications' && unreadCount" class="nav-badge" aria-hidden="true"></span>
+        </span>
         <span>{{ item.label }}</span>
       </a-button>
     </nav>

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
+import BottomSheet from './BottomSheet.vue'
 import { mockRequests } from '../data/requests'
 import {
   canCancel,
@@ -31,8 +32,12 @@ import rightWhiteIcon from '../assets/requests/right-white.svg'
 import chevronIcon from '../assets/requests/down.svg'
 import eventsIcon from '../assets/figma/event-candidate-1.svg'
 
-defineProps({ authenticated: Boolean })
-defineEmits(['login'])
+const props = defineProps({
+  authenticated: Boolean,
+  // Заявка, которую нужно сразу открыть (переход из уведомления).
+  focusRequestId: { type: String, default: null },
+})
+const emit = defineEmits(['login', 'focused'])
 
 const requests = ref(mockRequests.map((request) => ({ ...request })))
 const selectedSource = ref('events')
@@ -52,31 +57,6 @@ const sheetOptions = computed(() => (openSheet.value === 'filter'
   ? requestFilters.map((filter) => ({ ...filter, count: filterCounts.value[filter.value] }))
   : requestSortOptions))
 const sheetValue = computed(() => (openSheet.value === 'filter' ? selectedFilter.value : selectedSort.value))
-// Шторка закрывается свайпом вниз за ручку: тянем контейнер за пальцем,
-// после порога в 80px уводим вниз и закрываем, иначе возвращаем на место.
-let dragStartY = null
-let dragEl = null
-function onGrabStart(event) {
-  dragStartY = event.clientY
-  dragEl = event.currentTarget.closest('.ant-drawer-content-wrapper')
-  event.currentTarget.setPointerCapture(event.pointerId)
-  dragEl.style.transition = 'none'
-}
-function onGrabMove(event) {
-  if (dragStartY === null) return
-  dragEl.style.transform = `translateY(${Math.max(0, event.clientY - dragStartY)}px)`
-}
-function onGrabEnd(event) {
-  if (dragStartY === null) return
-  const el = dragEl
-  const shouldClose = event.clientY - dragStartY > 80
-  dragStartY = null
-  dragEl = null
-  el.style.transition = 'transform 200ms ease'
-  el.style.transform = shouldClose ? 'translateY(100%)' : ''
-  if (shouldClose) openSheet.value = null
-  setTimeout(() => { el.style.transition = ''; el.style.transform = '' }, 500)
-}
 function pickOption(value) {
   if (openSheet.value === 'filter') selectedFilter.value = value
   else selectedSort.value = value
@@ -95,6 +75,16 @@ function onHighlightsScroll(event) {
 }
 const steps = computed(() => (selectedRequest.value ? requestSteps(selectedRequest.value) : null))
 const sourceLabel = (source) => requestSources.find((item) => item.value === source)?.label
+
+// Переход из уведомления: переключаем категорию, сбрасываем фильтр и открываем деталь заявки.
+watch(() => props.focusRequestId, (id) => {
+  const target = requests.value.find((request) => request.id === id)
+  if (!target) return
+  selectedSource.value = target.source
+  selectedFilter.value = 'all'
+  selectedId.value = target.id
+  emit('focused')
+}, { immediate: true })
 
 // Состояние подтверждения отмены не должно переходить на другую заявку.
 watch(selectedId, () => { confirmingCancel.value = false })
@@ -128,7 +118,7 @@ function confirmCancel() {
 
     <div v-if="!authenticated" class="requests-login">
       <a-empty description="Войдите, чтобы увидеть свои заявки" />
-      <a-button type="primary" size="large" @click="$emit('login')">Войти в аккаунт</a-button>
+      <a-button type="primary" size="large" @click="emit('login')">Войти в аккаунт</a-button>
     </div>
 
     <template v-else>
@@ -209,36 +199,14 @@ function confirmCancel() {
       </a-empty>
     </template>
 
-    <a-drawer :open="!!openSheet" placement="bottom" height="auto" :closable="false" root-class-name="requests-sheet" @close="openSheet = null">
-      <div
-        class="sheet-grabber"
-        @pointerdown="onGrabStart"
-        @pointermove="onGrabMove"
-        @pointerup="onGrabEnd"
-        @pointercancel="onGrabEnd"
-      >
-        <i class="sheet-handle" aria-hidden="true"></i>
-        <h2 class="sheet-title">{{ sheetTitle }}</h2>
-      </div>
-      <div class="sheet-options" role="radiogroup" :aria-label="sheetTitle">
-        <button
-          v-for="option in sheetOptions"
-          :key="option.value"
-          type="button"
-          role="radio"
-          class="sheet-option"
-          :class="{ selected: option.value === sheetValue }"
-          :aria-checked="option.value === sheetValue"
-          @click="pickOption(option.value)"
-        >
-          <span class="sheet-option-copy">
-            <span class="sheet-option-line">{{ option.label }}<span v-if="option.count != null" class="sheet-option-count">{{ option.count }}</span></span>
-            <small v-if="option.hint">{{ option.hint }}</small>
-          </span>
-          <svg v-if="option.value === sheetValue" class="sheet-option-check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        </button>
-      </div>
-    </a-drawer>
+    <BottomSheet
+      :open="!!openSheet"
+      :title="sheetTitle"
+      :options="sheetOptions"
+      :value="sheetValue"
+      @close="openSheet = null"
+      @select="pickOption"
+    />
 
     <a-modal
       :open="!!selectedRequest"
@@ -360,25 +328,4 @@ function confirmCancel() {
 @media (prefers-reduced-motion: reduce) {
   .request-card, .highlight-card, .highlight-dots i { transition: none; }
 }
-</style>
-
-<!-- Шторка телепортируется в body, поэтому стили без scoped. -->
-<style>
-.requests-sheet .ant-drawer-content-wrapper { right: 0 !important; bottom: 0 !important; left: 0 !important; width: min(100%, 402px) !important; margin: 0 auto; box-shadow: 0 -8px 24px rgba(0, 0, 0, .12) !important; }
-.requests-sheet .ant-drawer-content { border-radius: 16px 16px 0 0; }
-.requests-sheet .sheet-grabber { padding: 8px 8px 4px; cursor: grab; touch-action: none; }
-.requests-sheet .sheet-handle { display: block; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: #d9d9d9; }
-.requests-sheet .sheet-title { margin: 0; color: rgba(0, 0, 0, .88); font-size: 16px; font-weight: 600; line-height: 24px; }
-.requests-sheet .ant-drawer-body { padding: 0 8px calc(16px + env(safe-area-inset-bottom)); }
-.requests-sheet .ant-drawer-body > .sheet-grabber { margin: 0 -8px; padding-left: 16px; padding-right: 16px; }
-.requests-sheet .sheet-options { display: grid; gap: 2px; }
-.requests-sheet .sheet-option { display: flex; width: 100%; min-height: 52px; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: none; color: rgba(0, 0, 0, .88); font-size: 15px; line-height: 20px; text-align: left; cursor: pointer; }
-.requests-sheet .sheet-option:active { background: #f5f5f5; }
-.requests-sheet .sheet-option:focus-visible { outline: 3px solid #1677ff; outline-offset: -3px; }
-.requests-sheet .sheet-option.selected { color: #1677ff; font-weight: 600; }
-.requests-sheet .sheet-option-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; }
-.requests-sheet .sheet-option-line { display: flex; align-items: baseline; gap: 8px; }
-.requests-sheet .sheet-option-copy small { color: rgba(0, 0, 0, .65); font-size: 12px; font-weight: 400; line-height: 16px; }
-.requests-sheet .sheet-option-count { color: rgba(0, 0, 0, .65); font-size: 13px; font-variant-numeric: tabular-nums; }
-.requests-sheet .sheet-option-check { flex-shrink: 0; margin-left: auto; }
 </style>
