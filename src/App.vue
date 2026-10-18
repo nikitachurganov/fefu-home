@@ -1,11 +1,11 @@
 <script setup>
 import { computed, ref } from 'vue'
+import RequestsPage from './components/RequestsPage.vue'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
 import helpIcon from './assets/figma/help.svg'
 import cloudIcon from './assets/figma/cloud.svg'
 import quickScanIcon from './assets/figma/quick-scan.svg'
-import quickApplicationIcon from './assets/figma/quick-application.svg'
 import mapIcon from './assets/figma/map.svg'
 import busIcon from './assets/figma/bus.svg'
 import educationIcon from './assets/figma/education.svg'
@@ -96,7 +96,7 @@ function openService(label) {
             <strong>QR-сканер</strong>
           </a-button>
           <a-button class="quick-card requests-card" aria-label="Открыть мои заявки" @click="selectNav('requests')">
-            <span class="quick-icon"><img :src="quickApplicationIcon" alt="" aria-hidden="true" /></span>
+            <span class="quick-icon"><img :src="documentIcon" alt="" aria-hidden="true" /></span>
             <strong>Мои заявки</strong>
           </a-button>
         </section>
@@ -172,6 +172,8 @@ function openService(label) {
           </a-button>
         </div>
       </section>
+
+      <RequestsPage v-else-if="activeNav === 'requests'" :authenticated="isAuthenticated" @login="authenticate" />
 
       <section v-else class="empty-page" :aria-labelledby="`${activeNav}-title`">
         <h1 :id="`${activeNav}-title`">{{ currentTitle }}</h1>

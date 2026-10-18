@@ -20,7 +20,7 @@ button, input, textarea, select { font: inherit; }
   margin: 0 auto;
   padding: 0 0 calc(64px + env(safe-area-inset-bottom));
   flex-direction: column;
-  overflow: hidden;
+  overflow: clip;
   background: #fff;
 }
 
@@ -100,6 +100,9 @@ button, input, textarea, select { font: inherit; }
 }
 .quick-card.ant-btn > .quick-icon { display: flex; }
 .quick-icon img { display: block; }
+.requests-card .quick-icon img {
+  filter: brightness(0) saturate(100%) invert(45%) sepia(75%) saturate(615%) hue-rotate(170deg) brightness(88%) contrast(89%);
+}
 .scanner-icon { background: rgba(71, 154, 232, .24); }
 
 .services {
