@@ -4,6 +4,7 @@ import { SearchOutlined } from '@ant-design/icons-vue'
 import RequestsPage from './components/RequestsPage.vue'
 import NotificationsPage from './components/NotificationsPage.vue'
 import QrScanner from './components/QrScanner.vue'
+import FeedbackSheet from './components/FeedbackSheet.vue'
 import { unreadCount } from './data/notificationStore'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
@@ -29,6 +30,7 @@ const isAuthenticated = ref(false)
 const statusText = ref('')
 const serviceQuery = ref('')
 const scannerOpen = ref(false)
+const feedbackOpen = ref(false)
 // Заявка, которую нужно открыть после перехода из уведомления.
 const focusRequestId = ref(null)
 
@@ -101,7 +103,7 @@ function openService(label) {
         <a-button type="text" class="header-button" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
           <img :src="scannerIcon" alt="" aria-hidden="true" />
         </a-button>
-        <a-button type="text" class="header-button" aria-label="Открыть помощь" @click="statusText = 'Помощь: демо-режим'">
+        <a-button type="text" class="header-button" aria-label="Обратная связь" @click="feedbackOpen = true">
           <img :src="helpIcon" alt="" aria-hidden="true" />
         </a-button>
       </div>
@@ -246,6 +248,7 @@ function openService(label) {
     </div>
 
     <QrScanner v-if="scannerOpen" @close="scannerOpen = false" @detect="onScanDetected" />
+    <FeedbackSheet :open="feedbackOpen" @close="feedbackOpen = false" />
 
     <nav class="bottom-nav" aria-label="Основная навигация">
       <a-button

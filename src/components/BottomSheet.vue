@@ -1,5 +1,5 @@
 <script setup>
-// Нижняя шторка с ручкой для выбора одного варианта из списка.
+// Нижняя шторка с ручкой: список вариантов для выбора одного или произвольное содержимое через слот.
 // Закрывается по Escape, по маске и свайпом вниз за ручку.
 defineProps({
   open: Boolean,
@@ -38,7 +38,7 @@ function onGrabEnd(event) {
 </script>
 
 <template>
-  <a-drawer :open="open" placement="bottom" height="auto" :closable="false" root-class-name="bottom-sheet" @close="emit('close')">
+  <a-drawer :open="open" placement="bottom" height="auto" :closable="false" :push="false" root-class-name="bottom-sheet" @close="emit('close')">
     <div
       class="sheet-grabber"
       @pointerdown="onGrabStart"
@@ -49,7 +49,9 @@ function onGrabEnd(event) {
       <i class="sheet-handle" aria-hidden="true"></i>
       <h2 class="sheet-title">{{ title }}</h2>
     </div>
-    <div class="sheet-options" role="radiogroup" :aria-label="title">
+    <!-- Если передан слот — показываем его (форма и т. п.), иначе список вариантов. -->
+    <div v-if="$slots.default" class="sheet-content"><slot /></div>
+    <div v-else class="sheet-options" role="radiogroup" :aria-label="title">
       <button
         v-for="option in options"
         :key="option.value"
@@ -77,7 +79,9 @@ function onGrabEnd(event) {
 .bottom-sheet .sheet-grabber { padding: 8px 8px 4px; cursor: grab; touch-action: none; }
 .bottom-sheet .sheet-handle { display: block; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: #d9d9d9; }
 .bottom-sheet .sheet-title { margin: 0; color: rgba(0, 0, 0, .88); font-size: 16px; font-weight: 600; line-height: 24px; }
-.bottom-sheet .ant-drawer-body { padding: 0 8px calc(16px + env(safe-area-inset-bottom)); }
+.bottom-sheet .ant-drawer-content-wrapper { max-height: 92dvh; }
+.bottom-sheet .ant-drawer-body { padding: 0 8px calc(16px + env(safe-area-inset-bottom)); overflow-y: auto; }
+.bottom-sheet .sheet-content { padding: 0 8px; }
 .bottom-sheet .ant-drawer-body > .sheet-grabber { margin: 0 -8px; padding-left: 16px; padding-right: 16px; }
 .bottom-sheet .sheet-options { display: grid; gap: 2px; }
 .bottom-sheet .sheet-option { display: flex; width: 100%; min-height: 52px; align-items: center; gap: 12px; padding: 8px; border: 0; border-radius: 8px; background: none; color: rgba(0, 0, 0, .88); font-size: 15px; line-height: 20px; text-align: left; cursor: pointer; }
