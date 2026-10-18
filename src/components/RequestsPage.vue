@@ -89,7 +89,7 @@ function confirmCancel() {
 
 <template>
   <section class="requests-page" aria-labelledby="requests-title">
-    <a-typography-title id="requests-title" :level="3">Мои заявки</a-typography-title>
+    <a-typography-title id="requests-title" class="requests-title" :level="3">Мои заявки</a-typography-title>
 
     <div v-if="!authenticated" class="requests-login">
       <a-empty description="Войдите, чтобы увидеть свои заявки" />
@@ -264,19 +264,19 @@ function confirmCancel() {
   --requests-secondary: rgba(0, 0, 0, .65);
   --requests-surface: #fff;
   --requests-radius: 12px;
-  padding-top: 24px;
   color: rgba(0, 0, 0, .88);
 }
-.requests-login { display: grid; justify-items: center; gap: 12px; padding: 24px 0; }
+.requests-title.ant-typography { margin: 0 -12px; padding: 16px 12px 12px; background: var(--requests-surface); }
+.requests-login { display: grid; margin: 0 -12px; padding: 24px 12px; justify-items: center; gap: 12px; background: var(--requests-surface); }
 .requests-empty { padding: 48px 0; }
-.request-highlights { margin: 0 -12px 8px; }
+.request-highlights { margin: 0 -12px; padding: 0 0 12px; background: var(--requests-surface); }
 .highlights-track { display: flex; gap: 8px; padding: 0 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 12px; scrollbar-width: none; }
 .highlights-track::-webkit-scrollbar { display: none; }
 .highlight-card { display: flex; flex: 0 0 min(260px, 78%); flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border: 0; border-radius: var(--requests-radius); background: #e8e8e8; color: rgba(0, 0, 0, .88); text-align: left; cursor: pointer; scroll-snap-align: start; transition: opacity 150ms ease; }
 .highlight-card.is-active { background: linear-gradient(122.46deg, #0067b1 0%, #479ae8 100%); color: #fff; }
 .highlight-card:active { opacity: .85; }
 .highlight-card:focus-visible { outline: 3px solid var(--requests-primary); outline-offset: 2px; }
-.highlight-card strong { font-size: 17px; line-height: 24px; overflow-wrap: anywhere; }
+.highlight-card strong { display: block; max-width: 100%; overflow: hidden; font-size: 17px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
 .highlight-card.is-active .request-meta { color: rgba(255, 255, 255, .92); }
 .highlight-top { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
 .highlight-tag { padding: 0 8px; border-radius: 4px; background: rgba(0, 0, 0, .08); font-size: 12px; line-height: 20px; }
@@ -284,7 +284,7 @@ function confirmCancel() {
 .highlight-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
 .highlight-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .18); transition: width 150ms ease, background-color 150ms ease; }
 .highlight-dots i.on { width: 16px; background: var(--requests-primary); }
-.request-sources-bar { position: sticky; z-index: 1; top: 56px; margin: 0 -12px; padding: 0 12px 8px; background: #f5f5f5; }
+.request-sources-bar { position: sticky; z-index: 1; top: 56px; margin: 0 -12px; padding: 0 12px 12px; background: var(--requests-surface); }
 .request-sources.ant-tabs { margin: 0 -12px; padding: 0 12px; }
 .request-sources :deep(.ant-tabs-nav) { margin: 0; }
 .request-sources :deep(.ant-tabs-tab) { min-height: 44px; padding: 10px 0; font-size: 15px; }
@@ -292,9 +292,8 @@ function confirmCancel() {
 .request-sources :deep(.ant-tabs-content-holder) { display: none; }
 .source-count { display: inline-grid; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; place-items: center; border-radius: 9px; background: rgba(0, 0, 0, .06); font-size: 12px; line-height: 18px; font-variant-numeric: tabular-nums; }
 .ant-tabs-tab-active .source-count { background: #e6f4ff; color: var(--requests-primary); }
-.request-filters { display: flex; gap: 8px; margin: 12px -12px 0; padding: 0 12px; overflow-x: auto; scrollbar-width: none; }
-.request-filters::-webkit-scrollbar { display: none; }
-.request-filter { position: relative; display: inline-flex; height: 32px; flex: 0 0 auto; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #d9d9d9; border-radius: 16px; background: #fff; color: rgba(0, 0, 0, .88); font-size: 14px; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.request-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.request-filter { position: relative; display: inline-flex; height: 32px; flex: 0 0 auto; white-space: nowrap; align-items: center; gap: 4px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 16px; background: #fff; color: rgba(0, 0, 0, .88); font-size: 13px; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
 .request-filter::after { position: absolute; inset: -6px -2px; content: ''; }
 .request-filter-count { color: var(--requests-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
 .request-filter.is-selected { border-color: var(--requests-primary); background: #e6f4ff; color: var(--requests-primary); }
@@ -338,8 +337,9 @@ function confirmCancel() {
 .cancel-confirm span { color: var(--requests-secondary); }
 .cancel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
 @media (max-width: 355px) {
-  .request-sources :deep(.ant-tabs-tab) { font-size: 14px; }
-  .request-sources :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 14px; }
+  .request-sources :deep(.ant-tabs-tab) { font-size: 13px; }
+  .request-sources :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 10px; }
+  .source-count { margin-left: 4px; padding: 0 4px; }
   .request-photo { width: 88px; height: 104px; flex-basis: 88px; }
 }
 @media (prefers-reduced-motion: reduce) {
