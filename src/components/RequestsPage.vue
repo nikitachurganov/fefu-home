@@ -295,7 +295,7 @@ function confirmCancel() {
 .highlight-card { display: flex; flex: 0 0 min(260px, 78%); flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border: 0; border-radius: var(--requests-radius); background: #e8e8e8; color: rgba(0, 0, 0, .88); text-align: left; cursor: pointer; scroll-snap-align: start; transition: opacity 150ms ease; }
 .highlight-card.is-active { --track: rgba(255, 255, 255, .28); --fill: #d6e8ff; background: linear-gradient(122.46deg, #0067b1 0%, #479ae8 100%); color: #fff; }
 /* Цвет плитки зависит от времени: идёт — синяя, подходит к концу — жёлтая, просрочена — красная; шкала в оттенке плитки. */
-.highlight-card.state-soon { --track: rgba(255, 255, 255, .28); --fill: #fff8d1; background: linear-gradient(122.46deg, #d4b106 0%, #fadb14 100%); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.highlight-card.state-soon { --track: rgba(255, 255, 255, .28); --fill: #fff8d1; background: linear-gradient(122.46deg, #d4b106 0%, #fadb14 100%); color: #fff; }
 .highlight-card.state-overdue { --track: rgba(255, 255, 255, .28); --fill: #ffd6d6; background: linear-gradient(122.46deg, #cf1322 0%, #ff4d4f 100%); color: #fff; }
 .highlight-card:active { opacity: .85; }
 .highlight-card:focus-visible { outline: 3px solid var(--requests-primary); outline-offset: 2px; }
