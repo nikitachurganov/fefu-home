@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { SearchOutlined } from '@ant-design/icons-vue'
 import RequestsPage from './components/RequestsPage.vue'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
@@ -23,6 +24,7 @@ const noticeVisible = ref(true)
 const activeNav = ref('home')
 const isAuthenticated = ref(false)
 const statusText = ref('')
+const serviceQuery = ref('')
 
 // Временный набор данных для демонстрации личного кабинета.
 const services = [
@@ -46,9 +48,15 @@ const currentTitle = computed(() => navigation.find((item) => item.id === active
 const availableServices = computed(() => services.filter((service) => !service.requiresAuth || isAuthenticated.value))
 const restrictedServices = computed(() => isAuthenticated.value ? [] : services.filter((service) => service.requiresAuth))
 
+// Поиск работает только на странице «Сервисы»; на главной остаются полные списки.
+const matchesQuery = (service) => service.label.toLowerCase().includes(serviceQuery.value.trim().toLowerCase())
+const foundServices = computed(() => availableServices.value.filter(matchesQuery))
+const foundRestrictedServices = computed(() => restrictedServices.value.filter(matchesQuery))
+
 function selectNav(id) {
   activeNav.value = id
   statusText.value = ''
+  serviceQuery.value = ''
 }
 
 function authenticate() {
@@ -148,9 +156,20 @@ function openService(label) {
 
       <section v-else-if="activeNav === 'services'" class="page-section" aria-labelledby="page-title">
         <a-typography-title id="page-title" :level="3">Сервисы</a-typography-title>
+        <p class="page-description">Карта, расписание, бронирование и другие сервисы кампуса в одном месте.</p>
+        <a-input
+          v-model:value="serviceQuery"
+          class="service-search"
+          size="large"
+          allow-clear
+          placeholder="Поиск по сервисам"
+          aria-label="Поиск по сервисам"
+        >
+          <template #prefix><SearchOutlined aria-hidden="true" /></template>
+        </a-input>
         <div class="service-list">
           <a-button
-            v-for="service in availableServices"
+            v-for="service in foundServices"
             :key="service.label"
             class="service-list-item"
             @click="openService(service.label)"
@@ -158,11 +177,11 @@ function openService(label) {
             <img :src="service.icon" alt="" aria-hidden="true" />
             <span>{{ service.label }}</span>
           </a-button>
-          <a-divider v-if="restrictedServices.length" orientation="left" :orientation-margin="0" plain class="service-list-divider">
+          <a-divider v-if="foundRestrictedServices.length" orientation="left" :orientation-margin="0" plain class="service-list-divider">
             Доступно после авторизации
           </a-divider>
           <a-button
-            v-for="service in restrictedServices"
+            v-for="service in foundRestrictedServices"
             :key="service.label"
             class="service-list-item"
             disabled
@@ -171,6 +190,11 @@ function openService(label) {
             <span>{{ service.label }}</span>
           </a-button>
         </div>
+        <a-empty
+          v-if="!foundServices.length && !foundRestrictedServices.length"
+          class="services-empty"
+          :description="`Ничего не найдено по запросу «${serviceQuery.trim()}»`"
+        />
       </section>
 
       <RequestsPage v-else-if="activeNav === 'requests'" :authenticated="isAuthenticated" @login="authenticate" />

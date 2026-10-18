@@ -198,6 +198,10 @@ button, input, textarea, select { font: inherit; }
   text-align: center;
 }
 .empty-page p { margin-bottom: 0; }
+.page-section > .ant-typography { margin-bottom: 0; }
+.service-search.ant-input-affix-wrapper { margin-bottom: 12px; border-radius: 8px; }
+.service-search .ant-input-prefix { color: rgba(0, 0, 0, .45); }
+.services-empty { padding: 32px 0; }
 .service-list { display: grid; gap: 4px; }
 .service-list-divider.ant-divider {
   margin: 16px 0;
