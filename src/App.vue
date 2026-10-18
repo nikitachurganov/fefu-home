@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { SearchOutlined } from '@ant-design/icons-vue'
 import RequestsPage from './components/RequestsPage.vue'
 import NotificationsPage from './components/NotificationsPage.vue'
+import QrScanner from './components/QrScanner.vue'
 import { unreadCount } from './data/notificationStore'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
@@ -27,6 +28,7 @@ const activeNav = ref('home')
 const isAuthenticated = ref(false)
 const statusText = ref('')
 const serviceQuery = ref('')
+const scannerOpen = ref(false)
 // Заявка, которую нужно открыть после перехода из уведомления.
 const focusRequestId = ref(null)
 
@@ -72,6 +74,11 @@ function authenticate() {
   statusText.value = ''
 }
 
+function onScanDetected(text) {
+  scannerOpen.value = false
+  statusText.value = `Код считан: ${text}`
+}
+
 function openRequestFromNotification(id) {
   focusRequestId.value = id
   selectNav('requests')
@@ -91,7 +98,7 @@ function openService(label) {
       </div>
 
       <div class="header-actions">
-        <a-button type="text" class="header-button" aria-label="Открыть QR-сканер" @click="statusText = 'QR-сканер: демо-режим'">
+        <a-button type="text" class="header-button" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
           <img :src="scannerIcon" alt="" aria-hidden="true" />
         </a-button>
         <a-button type="text" class="header-button" aria-label="Открыть помощь" @click="statusText = 'Помощь: демо-режим'">
@@ -111,7 +118,7 @@ function openService(label) {
     <div class="content" :class="{ 'home-content': activeNav === 'home' }">
       <template v-if="activeNav === 'home'">
         <section class="quick-actions" aria-label="Быстрые действия">
-          <a-button class="quick-card scanner-card" @click="statusText = 'QR-сканер: демо-режим'">
+          <a-button class="quick-card scanner-card" @click="scannerOpen = true">
             <span class="quick-icon scanner-icon"><img :src="quickScanIcon" alt="" aria-hidden="true" /></span>
             <strong>QR-сканер</strong>
           </a-button>
@@ -237,6 +244,8 @@ function openService(label) {
 
       <p v-if="statusText" class="status" role="status" aria-live="polite">{{ statusText }}</p>
     </div>
+
+    <QrScanner v-if="scannerOpen" @close="scannerOpen = false" @detect="onScanDetected" />
 
     <nav class="bottom-nav" aria-label="Основная навигация">
       <a-button

@@ -226,8 +226,9 @@ button, input, textarea, select { font: inherit; }
 .service-list-item.ant-btn span { font-size: 15px; line-height: 20px; }
 .service-list-item.ant-btn .service-list-copy { display: flex; min-width: 0; flex-direction: column; }
 .service-list-item.ant-btn .service-list-name, .service-list-item.ant-btn .service-list-desc { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-list-item.ant-btn .service-list-name { color: #101828; font-weight: 600; }
 .service-list-item.ant-btn .service-list-desc { color: rgba(0, 0, 0, .65); font-size: 13px; line-height: 16px; }
-.service-list-item.ant-btn:disabled .service-list-desc { color: rgba(0, 0, 0, .45); }
+.service-list-item.ant-btn:disabled .service-list-name, .service-list-item.ant-btn:disabled .service-list-desc { color: rgba(0, 0, 0, .45); }
 .service-list-item.ant-btn:disabled {
   color: rgba(0, 0, 0, .45);
   background: #fff;
@@ -263,6 +264,11 @@ button, input, textarea, select { font: inherit; }
 }
 .nav-item span { font-size: 11px; line-height: 16px; }
 .nav-item.active { color: #1677ff; }
+/* На сенсорных экранах hover «залипает» после тапа и выглядит как нажатое состояние. */
+@media (hover: none) {
+  .nav-item.ant-btn:hover,
+  .nav-item.ant-btn:focus { background: transparent; }
+}
 .nav-item .nav-icon { position: relative; display: block; line-height: 0; }
 .nav-item .nav-badge { position: absolute; top: -2px; left: 58%; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; background: #cf1322; box-sizing: content-box; }
 .nav-item img {
