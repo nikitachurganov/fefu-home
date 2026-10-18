@@ -28,12 +28,12 @@ const serviceQuery = ref('')
 
 // Временный набор данных для демонстрации личного кабинета.
 const services = [
-  { label: 'Карта', icon: mapIcon },
-  { label: 'Шаттлы', icon: busIcon },
-  { label: 'Расписание', icon: educationIcon, requiresAuth: true },
-  { label: 'Мероприятия', icon: eventsIcon, requiresAuth: true },
-  { label: 'Бронирование', icon: calendarIcon, requiresAuth: true },
-  { label: 'Аренда', icon: rentIcon, requiresAuth: true },
+  { label: 'Карта', description: 'Корпуса, общежития и маршруты по кампусу', icon: mapIcon },
+  { label: 'Шаттлы', description: 'Маршруты и расписание автобусов', icon: busIcon },
+  { label: 'Расписание', description: 'Занятия, аудитории и преподаватели', icon: educationIcon, requiresAuth: true },
+  { label: 'Мероприятия', description: 'Афиша событий ДВФУ', icon: eventsIcon, requiresAuth: true },
+  { label: 'Бронирование', description: 'Оборудование, рабочие места и помещения', icon: calendarIcon, requiresAuth: true },
+  { label: 'Аренда', description: 'Инвентарь в общежитиях (утюги и другое) и переносное оборудование', icon: rentIcon, requiresAuth: true },
 ]
 
 const navigation = [
@@ -49,7 +49,10 @@ const availableServices = computed(() => services.filter((service) => !service.r
 const restrictedServices = computed(() => isAuthenticated.value ? [] : services.filter((service) => service.requiresAuth))
 
 // Поиск работает только на странице «Сервисы»; на главной остаются полные списки.
-const matchesQuery = (service) => service.label.toLowerCase().includes(serviceQuery.value.trim().toLowerCase())
+const matchesQuery = (service) => {
+  const query = serviceQuery.value.trim().toLowerCase()
+  return service.label.toLowerCase().includes(query) || service.description.toLowerCase().includes(query)
+}
 const foundServices = computed(() => availableServices.value.filter(matchesQuery))
 const foundRestrictedServices = computed(() => restrictedServices.value.filter(matchesQuery))
 
@@ -156,7 +159,6 @@ function openService(label) {
 
       <section v-else-if="activeNav === 'services'" class="page-section" aria-labelledby="page-title">
         <a-typography-title id="page-title" :level="3">Сервисы</a-typography-title>
-        <p class="page-description">Карта, расписание, бронирование и другие сервисы кампуса в одном месте.</p>
         <a-input
           v-model:value="serviceQuery"
           class="service-search"
@@ -175,7 +177,10 @@ function openService(label) {
             @click="openService(service.label)"
           >
             <img :src="service.icon" alt="" aria-hidden="true" />
-            <span>{{ service.label }}</span>
+            <span class="service-list-copy">
+              <span class="service-list-name">{{ service.label }}</span>
+              <span class="service-list-desc">{{ service.description }}</span>
+            </span>
           </a-button>
           <a-divider v-if="foundRestrictedServices.length" orientation="left" :orientation-margin="0" plain class="service-list-divider">
             Доступно после авторизации
@@ -187,7 +192,10 @@ function openService(label) {
             disabled
           >
             <img :src="service.icon" alt="" aria-hidden="true" />
-            <span>{{ service.label }}</span>
+            <span class="service-list-copy">
+              <span class="service-list-name">{{ service.label }}</span>
+              <span class="service-list-desc">{{ service.description }}</span>
+            </span>
           </a-button>
         </div>
         <a-empty

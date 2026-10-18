@@ -211,7 +211,8 @@ button, input, textarea, select { font: inherit; }
 .service-list-item.ant-btn {
   display: flex;
   width: 100%;
-  height: 64px;
+  height: auto;
+  min-height: 64px;
   padding: 12px;
   align-items: center;
   gap: 12px;
@@ -223,6 +224,10 @@ button, input, textarea, select { font: inherit; }
   box-shadow: none;
 }
 .service-list-item.ant-btn span { font-size: 15px; line-height: 20px; }
+.service-list-item.ant-btn .service-list-copy { display: flex; min-width: 0; flex-direction: column; white-space: normal; }
+.service-list-item.ant-btn .service-list-name, .service-list-item.ant-btn .service-list-desc { display: block; }
+.service-list-item.ant-btn .service-list-desc { color: rgba(0, 0, 0, .65); font-size: 13px; line-height: 16px; }
+.service-list-item.ant-btn:disabled .service-list-desc { color: rgba(0, 0, 0, .45); }
 .service-list-item.ant-btn:disabled {
   color: rgba(0, 0, 0, .45);
   background: #fff;
