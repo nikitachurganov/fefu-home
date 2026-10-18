@@ -312,7 +312,7 @@ function confirmCancel() {
 .highlight-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
 .highlight-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .18); transition: width 150ms ease, background-color 150ms ease; }
 .highlight-dots i.on { width: 16px; background: var(--requests-primary); }
-.request-sources-bar { position: sticky; z-index: 1; top: 56px; margin: 0 -12px; padding: 0 12px 12px; background: var(--requests-surface); }
+.request-sources-bar { position: sticky; z-index: 1; top: 56px; margin: 0 -12px; padding: 0 12px 12px; border-bottom: 1px solid rgba(0, 0, 0, .1); background: var(--requests-surface); }
 .request-sources.ant-tabs { margin: 0 -12px; padding: 0 12px; }
 .request-sources :deep(.ant-tabs-nav) { margin: 0; }
 .request-sources :deep(.ant-tabs-tab) { min-height: 44px; padding: 10px 0; font-size: 15px; }
