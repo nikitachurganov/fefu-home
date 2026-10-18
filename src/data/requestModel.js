@@ -129,10 +129,36 @@ export function pickHighlights(requests, limit = 5) {
     .slice(0, limit)
 }
 
-// «Сегодня, до 14:00» для используемой заявки, «Сегодня, 12:00 — 14:00» для остальных.
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+
+// Дата и время в часовом поясе кампуса: sv-SE даёт стабильный формат «ГГГГ-ММ-ДД ЧЧ:ММ:СС».
+function parts(iso) {
+  const [key, time] = new Date(iso).toLocaleString('sv-SE', { timeZone: TIME_ZONE }).split(' ')
+  const [year, month, day] = key.split('-').map(Number)
+  return { key, year, month, day, time: time.slice(0, 5) }
+}
+
+export const isMultiDay = (request) => parts(request.startsAt).key !== parts(request.endsAt).key
+
+// Полный формат — для деталей заявки; compact (без года, короткие месяцы) — для карточек,
+// где многодневное «25 октября 2026, 10:00 — 26 октября 2026, 18:00» не помещается в строку.
+export function formatWhen(request, { compact = false } = {}) {
+  const start = parts(request.startsAt)
+  const end = parts(request.endsAt)
+  const day = (p) => (compact ? `${p.day} ${MONTHS_SHORT[p.month - 1]}` : `${p.day} ${MONTHS[p.month - 1]} ${p.year}`)
+  // Неразрывные пробелы внутри даты: строка переносится только у тире, а не посреди «26 октября 2026, 18:00».
+  const keep = (text) => text.replaceAll(' ', ' ')
+  const from = keep(`${day(start)}, ${start.time}`)
+  const to = start.key === end.key ? end.time : keep(`${day(end)}, ${end.time}`)
+  return `${from} — ${to}`
+}
+
+// Подпись для карусели: «Сегодня, до 14:00» у используемой заявки, иначе «Сегодня, 12:00 — 14:00».
 export function whenLabel(request, now = new Date()) {
-  const [datePart, timePart = ''] = request.date.split(/,\s(.+)/)
-  const day = relativeDay(request, now) || datePart.replace(/\s\d{4}$/, '')
-  const end = timePart.split('— ')[1]
-  return request.status === 'active' && end ? `${day}, до ${end}` : `${day}, ${timePart}`
+  const start = parts(request.startsAt)
+  const end = parts(request.endsAt)
+  const day = relativeDay(request, now) || `${start.day} ${MONTHS[start.month - 1]}`
+  const endText = isMultiDay(request) ? `${end.day} ${MONTHS_SHORT[end.month - 1]}, ${end.time}` : end.time
+  return request.status === 'active' ? `${day}, до ${endText}` : `${day}, ${start.time} — ${endText}`
 }

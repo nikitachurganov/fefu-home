@@ -8,8 +8,9 @@ import {
   countByFilter,
   countOpenBySource,
   feedRequests,
+  formatWhen,
+  isMultiDay,
   pickHighlights,
-  relativeDay,
   requestFilters,
   requestGroups,
   requestSortOptions,
@@ -107,7 +108,6 @@ watch(confirmingCancel, async (open) => {
 })
 
 function iconsFor(request) {
-  if (request.status === 'active') return { date: dateWhiteIcon, place: placeWhiteIcon }
   if (request.statusGroup === 'archive') return { date: dateMutedIcon, place: placeMutedIcon }
   return { date: dateIcon, place: placeIcon }
 }
@@ -188,19 +188,18 @@ function confirmCancel() {
           :key="request.id"
           type="button"
           class="request-card"
-          :class="{ 'is-active': request.status === 'active', 'is-archive': request.statusGroup === 'archive' }"
-          :aria-label="`${request.title}. ${requestStatuses[request.status].label}. ${request.date}. ${request.place}`"
+          :class="{ 'is-archive': request.statusGroup === 'archive' }"
+          :aria-label="`${request.title}. ${requestStatuses[request.status].label}. ${formatWhen(request)}. ${request.place}`"
           @click="selectedId = request.id"
         >
           <img v-if="request.image" class="request-photo" :src="request.image" alt="" width="103" height="104" />
           <span v-else class="request-photo request-photo-placeholder"><img :src="eventsIcon" alt="" /></span>
           <span class="request-copy">
             <strong>{{ request.title }}</strong>
-            <span class="request-meta"><img :src="iconsFor(request).date" alt="" />{{ request.date }}</span>
+            <span class="request-meta"><img :src="iconsFor(request).date" alt="" />{{ formatWhen(request, { compact: isMultiDay(request) }) }}</span>
             <span class="request-meta"><img :src="iconsFor(request).place" alt="" />{{ request.place }}</span>
             <span class="request-tags">
               <a-tag :color="requestStatuses[request.status].color">{{ requestStatuses[request.status].label }}</a-tag>
-              <a-tag v-if="relativeDay(request)" color="processing">{{ relativeDay(request) }}</a-tag>
             </span>
           </span>
         </button>
@@ -255,11 +254,10 @@ function confirmCancel() {
           <a-typography-text type="secondary">{{ sourceLabel(selectedRequest.source) }}</a-typography-text>
           <span class="request-tags">
             <a-tag :color="requestStatuses[selectedRequest.status].color">{{ requestStatuses[selectedRequest.status].label }}</a-tag>
-            <a-tag v-if="relativeDay(selectedRequest)" color="processing">{{ relativeDay(selectedRequest) }}</a-tag>
           </span>
         </div>
         <a-typography-title :level="4">{{ selectedRequest.title }}</a-typography-title>
-        <p><img :src="dateIcon" alt="" />{{ selectedRequest.date }}</p>
+        <p><img :src="dateIcon" alt="" />{{ formatWhen(selectedRequest) }}</p>
         <p><img :src="placeIcon" alt="" />{{ selectedRequest.place }}</p>
 
         <a-alert
@@ -329,15 +327,13 @@ function confirmCancel() {
 .sheet-trigger-text small { color: var(--requests-secondary); font-size: 12px; line-height: 16px; }
 .sheet-trigger img { flex-shrink: 0; transform: rotate(90deg); }
 .request-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
-.request-card { display: flex; width: 100%; align-items: stretch; gap: 8px; padding: 0 4px 0 0; border: 4px solid var(--requests-surface); border-radius: var(--requests-radius); background: var(--requests-surface); color: inherit; text-align: left; cursor: pointer; transition: opacity 150ms ease; }
-.request-card.is-active { border-color: var(--requests-primary); background: var(--requests-primary); color: #fff; }
-.request-card.is-active .request-meta { color: rgba(255, 255, 255, .88); }
+.request-card { display: flex; width: 100%; align-items: center; gap: 12px; padding: 4px; border: 0; border-radius: var(--requests-radius); background: var(--requests-surface); color: inherit; text-align: left; cursor: pointer; transition: opacity 150ms ease; }
 .request-card.is-archive strong { color: var(--requests-secondary); }
 .request-card.is-archive .request-photo { opacity: .6; filter: grayscale(.6); }
 .request-photo { flex: 0 0 103px; align-self: center; object-fit: cover; border-radius: 10px; }
 .request-photo-placeholder { display: grid; width: 103px; height: 104px; place-items: center; background: #e6f4ff; }
 .request-photo-placeholder img { width: 44px; height: 44px; }
-.request-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 0; }
+.request-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; padding: 0; }
 .request-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .request-tags :deep(.ant-tag), .request-copy :deep(.ant-tag) { max-width: 100%; margin: 0; padding: 0 7px; border-radius: 4px; font-size: 13px; line-height: 20px; white-space: normal; }
 .request-copy strong { max-width: 100%; overflow: hidden; font-size: 15px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
