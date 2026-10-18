@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import BottomSheet from './BottomSheet.vue'
 import { mockRequests } from '../data/requests'
@@ -19,11 +19,11 @@ import {
   requestSteps,
   requestStatuses,
   statusHints,
+  timerLabel,
   whenLabel,
 } from '../data/requestModel'
 import dateIcon from '../assets/requests/date.svg'
 import placeIcon from '../assets/requests/place.svg'
-import dateWhiteIcon from '../assets/requests/date-white.svg'
 import placeWhiteIcon from '../assets/requests/place-white.svg'
 import dateMutedIcon from '../assets/requests/date-muted.svg'
 import placeMutedIcon from '../assets/requests/place-muted.svg'
@@ -65,6 +65,15 @@ function pickOption(value) {
 const emptyText = computed(() => requestGroups.find((group) => group.key === selectedFilter.value)?.emptyText ?? 'В этом разделе у вас пока нет заявок')
 const openCounts = computed(() => countOpenBySource(requests.value))
 const highlights = computed(() => pickHighlights(requests.value))
+
+// Таймер активной заявки тикает раз в секунду, пока открыта страница.
+const now = ref(Date.now())
+let tick
+onMounted(() => { tick = setInterval(() => { now.value = Date.now() }, 1000) })
+onBeforeUnmount(() => clearInterval(tick))
+const timerOf = (request) => timerLabel(request, now.value)
+// У активной заявки плитка цветная (синяя, жёлтая или красная) — текст и иконки белые.
+const onDark = (request) => request.status === 'active'
 const highlightIndex = ref(0)
 function onHighlightsScroll(event) {
   const track = event.currentTarget
@@ -129,17 +138,32 @@ function confirmCancel() {
             :key="request.id"
             type="button"
             class="highlight-card"
-            :class="{ 'is-active': request.status === 'active' }"
-            :aria-label="`${request.status === 'active' ? 'Активная' : 'Ближайшая'} заявка: ${request.title}. ${whenLabel(request)}. ${request.place}`"
+            :class="request.status === 'active' ? ['is-active', `state-${timerOf(request).state}`] : null"
+            :aria-label="`${request.status === 'active' ? `Активная заявка: ${request.title}. ${timerOf(request).overdue ? 'Превышено на' : 'Осталось'} ${timerOf(request).spoken}` : `Ближайшая заявка: ${request.title}. ${whenLabel(request)}`}. ${request.place}`"
             @click="selectedId = request.id"
           >
             <span class="highlight-top">
-              <span class="highlight-tag">{{ request.status === 'active' ? 'Активная' : 'Ближайшая' }}</span>
-              <img :src="request.status === 'active' ? rightWhiteIcon : rightMutedIcon" alt="" />
+              <span class="highlight-tag">{{ request.status === 'active' ? (timerOf(request).overdue ? 'Просрочено' : 'Активная') : 'Ближайшая' }}</span>
+              <img :src="onDark(request) ? rightWhiteIcon : rightMutedIcon" alt="" />
             </span>
             <strong>{{ request.title }}</strong>
-            <span class="request-meta"><img :src="request.status === 'active' ? dateWhiteIcon : dateMutedIcon" alt="" />{{ whenLabel(request) }}</span>
-            <span class="request-meta"><img :src="request.status === 'active' ? placeWhiteIcon : placeMutedIcon" alt="" />{{ request.place }}</span>
+            <span
+              v-if="request.status === 'active'"
+              class="highlight-progress"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              :aria-valuenow="timerOf(request).percent"
+              :aria-valuetext="`${timerOf(request).overdue ? 'Превышено на' : 'Осталось'} ${timerOf(request).spoken}`"
+            >
+              <span class="progress-head">
+                <span>{{ timerOf(request).overdue ? 'Превышено на' : 'Осталось' }}</span>
+                <b class="timer-value">{{ timerOf(request).text }}</b>
+              </span>
+              <span class="progress-track"><span class="progress-fill" :style="{ width: `${timerOf(request).percent}%` }"></span></span>
+            </span>
+            <span v-else class="request-meta"><img :src="dateMutedIcon" alt="" />{{ whenLabel(request) }}</span>
+            <span class="request-meta"><img :src="onDark(request) ? placeWhiteIcon : placeMutedIcon" alt="" />{{ request.place }}</span>
           </button>
         </div>
         <div v-if="highlights.length > 1" class="highlight-dots" aria-hidden="true">
@@ -269,11 +293,19 @@ function confirmCancel() {
 .highlights-track { display: flex; gap: 8px; padding: 0 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 12px; scrollbar-width: none; }
 .highlights-track::-webkit-scrollbar { display: none; }
 .highlight-card { display: flex; flex: 0 0 min(260px, 78%); flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border: 0; border-radius: var(--requests-radius); background: #e8e8e8; color: rgba(0, 0, 0, .88); text-align: left; cursor: pointer; scroll-snap-align: start; transition: opacity 150ms ease; }
-.highlight-card.is-active { background: linear-gradient(122.46deg, #0067b1 0%, #479ae8 100%); color: #fff; }
+.highlight-card.is-active { --track: rgba(255, 255, 255, .28); --fill: #d6e8ff; background: linear-gradient(122.46deg, #0067b1 0%, #479ae8 100%); color: #fff; }
+/* Цвет плитки зависит от времени: идёт — синяя, подходит к концу — жёлтая, просрочена — красная; шкала в оттенке плитки. */
+.highlight-card.state-soon { --track: rgba(255, 255, 255, .28); --fill: #fff8d1; background: linear-gradient(122.46deg, #d4b106 0%, #fadb14 100%); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.highlight-card.state-overdue { --track: rgba(255, 255, 255, .28); --fill: #ffd6d6; background: linear-gradient(122.46deg, #cf1322 0%, #ff4d4f 100%); color: #fff; }
 .highlight-card:active { opacity: .85; }
 .highlight-card:focus-visible { outline: 3px solid var(--requests-primary); outline-offset: 2px; }
 .highlight-card strong { display: block; max-width: 100%; overflow: hidden; font-size: 17px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
 .highlight-card.is-active .request-meta { color: rgba(255, 255, 255, .92); }
+.highlight-progress { display: grid; width: 100%; gap: 6px; font-size: 13px; line-height: 20px; }
+.progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.timer-value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.progress-track { display: block; height: 6px; overflow: hidden; border-radius: 3px; background: var(--track); }
+.progress-fill { display: block; height: 100%; border-radius: 3px; background: var(--fill); }
 .highlight-top { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
 .highlight-tag { padding: 0 8px; border-radius: 4px; background: rgba(0, 0, 0, .08); font-size: 12px; line-height: 20px; }
 .highlight-card.is-active .highlight-tag { background: rgba(255, 255, 255, .24); }

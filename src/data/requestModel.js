@@ -162,3 +162,29 @@ export function whenLabel(request, now = new Date()) {
   const endText = isMultiDay(request) ? `${end.day} ${MONTHS_SHORT[end.month - 1]}, ${end.time}` : end.time
   return request.status === 'active' ? `${day}, до ${endText}` : `${day}, ${start.time} — ${endText}`
 }
+
+// Таймер активной заявки: сколько осталось до конца или сколько прошло после него.
+// text — «ЧЧ:ММ:СС» (с днями, если больше суток), spoken — для скринридера без секунд,
+// percent — заполненность прогресс-бара.
+// За сколько до конца аренды заявка считается «подходящей к концу» (жёлтая плитка).
+export const NEAR_END_MS = 30 * 60 * 1000
+
+export function timerLabel(request, nowMs = Date.now()) {
+  const diff = Date.parse(request.endsAt) - nowMs
+  const total = Math.floor(Math.abs(diff) / 1000)
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const pad = (value) => String(value).padStart(2, '0')
+  const clock = `${pad(hours)}:${pad(minutes)}:${pad(total % 60)}`
+  const length = Date.parse(request.endsAt) - Date.parse(request.startsAt)
+  return {
+    overdue: diff < 0,
+    // normal — идёт как обычно, soon — подходит к концу, overdue — просрочена.
+    state: diff < 0 ? 'overdue' : diff <= NEAR_END_MS ? 'soon' : 'normal',
+    // Доля прошедшего времени аренды от 0 до 100; после срока — полная шкала.
+    percent: length > 0 ? Math.min(100, Math.max(0, Math.round(((nowMs - Date.parse(request.startsAt)) / length) * 100))) : 100,
+    text: days ? `${days} д ${clock}` : clock,
+    spoken: `${days * 24 + hours} ч ${minutes} мин`,
+  }
+}

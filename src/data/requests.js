@@ -6,6 +6,10 @@ import tools from '../assets/requests/tools.webp'
 
 // Демонстрационные заявки. Источник, группа и состояние приходят из данных.
 // Даты фиксированы; автоматического переноса заявок в архив нет.
+// У части активных заявок время считается от текущего момента, чтобы на макете были состояния «идёт»
+// и «подходит к концу» в любое время суток.
+const fromNow = (minutes) => new Date(Date.now() + minutes * 60000).toISOString()
+
 export const mockRequests = [
   { id: '2001', source: 'events', statusGroup: 'confirmed', status: 'confirmed', title: 'Лекция «Город будущего»', startsAt: '2026-10-22T18:00:00+10:00', endsAt: '2026-10-22T19:30:00+10:00', place: 'Корпус А · Ауд. 305' },
   { id: '2002', source: 'events', statusGroup: 'confirmed', status: 'confirmed', title: 'День студенческих сообществ', startsAt: '2026-10-20T14:00:00+10:00', endsAt: '2026-10-20T17:00:00+10:00', place: 'Студенческий центр · Большой зал' },
@@ -14,7 +18,7 @@ export const mockRequests = [
   { id: '2004', source: 'events', statusGroup: 'archive', status: 'completed', title: 'Открытая встреча с выпускниками', startsAt: '2026-10-10T16:00:00+10:00', endsAt: '2026-10-10T18:00:00+10:00', archivedAt: '2026-10-10T18:00:00+10:00', place: 'Студенческий центр · Зал встреч' },
   { id: '2005', source: 'events', statusGroup: 'archive', status: 'cancelled', title: 'Экскурсия по кампусу', startsAt: '2026-10-18T11:00:00+10:00', endsAt: '2026-10-18T12:30:00+10:00', archivedAt: '2026-10-17T15:00:00+10:00', place: 'Главный вход в корпус А' },
   { id: '3001', source: 'equipment', statusGroup: 'confirmed', status: 'upcoming', title: 'Проектор', image: projector, startsAt: '2026-10-21T14:00:00+10:00', endsAt: '2026-10-21T18:00:00+10:00', place: 'Корпус А · Ауд. 305' },
-  { id: '3002', source: 'equipment', statusGroup: 'confirmed', status: 'active', title: '3D-принтер', image: printer3d, startsAt: '2026-10-18T10:00:00+10:00', endsAt: '2026-10-18T18:00:00+10:00', place: 'Студенческий центр · Комната 12' },
+  { id: '3002', source: 'equipment', statusGroup: 'confirmed', status: 'active', title: '3D-принтер', image: printer3d, startsAt: fromNow(-60), endsAt: fromNow(180), place: 'Студенческий центр · Комната 12' },
   { id: '3003', source: 'equipment', statusGroup: 'moderation', status: 'review', title: 'Проектор', image: projector, startsAt: '2026-10-23T10:00:00+10:00', endsAt: '2026-10-23T12:00:00+10:00', place: 'Корпус D · Ауд. 210' },
   { id: '3004', source: 'equipment', statusGroup: 'moderation', status: 'review', title: '3D-принтер', image: printer3d, startsAt: '2026-10-22T09:00:00+10:00', endsAt: '2026-10-22T13:00:00+10:00', place: 'Студенческий центр · Комната 12' },
   { id: '3005', source: 'equipment', statusGroup: 'archive', status: 'rejected', reason: 'Проектор уже забронирован другим пользователем на это время.', title: 'Проектор', image: projector, startsAt: '2026-10-17T14:00:00+10:00', endsAt: '2026-10-17T18:00:00+10:00', archivedAt: '2026-10-16T12:00:00+10:00', place: 'Корпус А · Ауд. 305' },
@@ -23,4 +27,7 @@ export const mockRequests = [
   { id: '1003', source: 'tmc', statusGroup: 'confirmed', status: 'upcoming', title: 'Пылесос', image: vacuum, startsAt: '2026-10-19T14:00:00+10:00', endsAt: '2026-10-19T18:00:00+10:00', place: 'Общежитие №5 · Комната 12' },
   { id: '1005', source: 'tmc', statusGroup: 'archive', status: 'completed', title: 'Набор инструментов', image: tools, startsAt: '2026-10-15T14:00:00+10:00', endsAt: '2026-10-15T18:00:00+10:00', archivedAt: '2026-10-15T18:00:00+10:00', place: 'Общежитие №7 · Комната 101' },
   { id: '1006', source: 'tmc', statusGroup: 'archive', status: 'cancelled', title: 'Утюг', image: iron, startsAt: '2026-10-17T12:00:00+10:00', endsAt: '2026-10-17T14:00:00+10:00', archivedAt: '2026-10-16T09:00:00+10:00', place: 'Общежитие №7 · Комната 101' },
+  // Состояния активных заявок (см. timerLabel в requestModel.js): 3002 — идёт, 1007 — подходит к концу,
+  // 1001 — просрочена (срок 14:00 фиксирован, на него ссылаются уведомления).
+  { id: '1007', source: 'tmc', statusGroup: 'confirmed', status: 'active', title: 'Пылесос', image: vacuum, startsAt: fromNow(-100), endsAt: fromNow(20), place: 'Общежитие №5 · Комната 12' },
 ]
