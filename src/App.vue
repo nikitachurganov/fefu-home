@@ -33,7 +33,7 @@ const services = [
   { label: 'Расписание', description: 'Занятия, аудитории и преподаватели', icon: educationIcon, requiresAuth: true },
   { label: 'Мероприятия', description: 'Афиша событий ДВФУ', icon: eventsIcon, requiresAuth: true },
   { label: 'Бронирование', description: 'Оборудование, рабочие места и помещения', icon: calendarIcon, requiresAuth: true },
-  { label: 'Аренда', description: 'Инвентарь в общежитиях (утюги и другое) и переносное оборудование', icon: rentIcon, requiresAuth: true },
+  { label: 'Аренда', description: 'Инвентарь и переносное оборудование', icon: rentIcon, requiresAuth: true },
 ]
 
 const navigation = [
