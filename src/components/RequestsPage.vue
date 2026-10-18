@@ -107,9 +107,9 @@ watch(confirmingCancel, async (open) => {
 })
 
 function iconsFor(request) {
-  if (request.status === 'active') return { date: dateWhiteIcon, place: placeWhiteIcon, chevron: rightWhiteIcon }
-  if (request.statusGroup === 'archive') return { date: dateMutedIcon, place: placeMutedIcon, chevron: rightMutedIcon }
-  return { date: dateIcon, place: placeIcon, chevron: rightMutedIcon }
+  if (request.status === 'active') return { date: dateWhiteIcon, place: placeWhiteIcon }
+  if (request.statusGroup === 'archive') return { date: dateMutedIcon, place: placeMutedIcon }
+  return { date: dateIcon, place: placeIcon }
 }
 
 function confirmCancel() {
@@ -193,18 +193,16 @@ function confirmCancel() {
           @click="selectedId = request.id"
         >
           <img v-if="request.image" class="request-photo" :src="request.image" alt="" width="103" height="104" />
-          <span v-else class="request-event-icon"><img :src="eventsIcon" alt="" /></span>
+          <span v-else class="request-photo request-photo-placeholder"><img :src="eventsIcon" alt="" /></span>
           <span class="request-copy">
+            <strong>{{ request.title }}</strong>
+            <span class="request-meta"><img :src="iconsFor(request).date" alt="" />{{ request.date }}</span>
+            <span class="request-meta"><img :src="iconsFor(request).place" alt="" />{{ request.place }}</span>
             <span class="request-tags">
               <a-tag :color="requestStatuses[request.status].color">{{ requestStatuses[request.status].label }}</a-tag>
               <a-tag v-if="relativeDay(request)" color="processing">{{ relativeDay(request) }}</a-tag>
             </span>
-            <strong>{{ request.title }}</strong>
-            <span class="request-meta"><img :src="iconsFor(request).date" alt="" />{{ request.date }}</span>
-            <span class="request-meta"><img :src="iconsFor(request).place" alt="" />{{ request.place }}</span>
-            <span v-if="request.reason" class="request-reason">{{ request.reason }}</span>
           </span>
-          <img class="request-chevron" :src="iconsFor(request).chevron" alt="" />
         </button>
       </div>
       <a-empty v-else class="requests-empty" :description="emptyText">
@@ -330,22 +328,21 @@ function confirmCancel() {
 .sheet-trigger-text { display: flex; min-width: 0; flex-direction: column; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sheet-trigger-text small { color: var(--requests-secondary); font-size: 12px; line-height: 16px; }
 .sheet-trigger img { flex-shrink: 0; transform: rotate(90deg); }
-.request-list { display: grid; gap: 8px; margin-top: 16px; }
+.request-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
 .request-card { display: flex; width: 100%; align-items: stretch; gap: 8px; padding: 0 4px 0 0; border: 4px solid var(--requests-surface); border-radius: var(--requests-radius); background: var(--requests-surface); color: inherit; text-align: left; cursor: pointer; transition: opacity 150ms ease; }
 .request-card.is-active { border-color: var(--requests-primary); background: var(--requests-primary); color: #fff; }
 .request-card.is-active .request-meta { color: rgba(255, 255, 255, .88); }
 .request-card.is-archive strong { color: var(--requests-secondary); }
 .request-card.is-archive .request-photo { opacity: .6; filter: grayscale(.6); }
 .request-photo { flex: 0 0 103px; align-self: center; object-fit: cover; border-radius: 10px; }
-.request-event-icon { display: grid; flex: 0 0 44px; height: 44px; margin: 8px 0 0 4px; place-items: center; border-radius: 10px; background: #e6f4ff; }
+.request-photo-placeholder { display: grid; width: 103px; height: 104px; place-items: center; background: #e6f4ff; }
+.request-photo-placeholder img { width: 44px; height: 44px; }
 .request-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 0; }
 .request-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .request-tags :deep(.ant-tag), .request-copy :deep(.ant-tag) { max-width: 100%; margin: 0; padding: 0 7px; border-radius: 4px; font-size: 13px; line-height: 20px; white-space: normal; }
-.request-copy strong { font-size: 15px; line-height: 20px; overflow-wrap: anywhere; }
+.request-copy strong { max-width: 100%; overflow: hidden; font-size: 15px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .request-meta { display: flex; align-items: flex-start; gap: 4px; color: var(--requests-secondary); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
 .request-meta img { flex-shrink: 0; margin-top: 1px; }
-.request-reason { color: #cf1322; font-size: 12px; line-height: 16px; }
-.request-chevron { flex-shrink: 0; align-self: center; margin-right: 4px; }
 .request-card:active { opacity: .8; }
 .request-card:focus-visible { outline: 3px solid var(--requests-primary); outline-offset: 2px; }
 .request-details { display: flex; max-height: calc(100dvh - 160px); flex-direction: column; align-items: stretch; gap: 12px; overflow-y: auto; }
