@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "dev:phone": "vite --mode phone",
+    "codes": "node scripts/generate-codes.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^6.0.10",
@@ -15,5 +18,9 @@
     "ant-design-vue": "^4.2.6",
     "vite": "^8.3.4",
     "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "vitest": "^5.0.5"
   }
 }

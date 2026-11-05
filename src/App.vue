@@ -1,11 +1,19 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { SearchOutlined } from '@ant-design/icons-vue'
+import { computed, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
+import { QrcodeOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import DesktopHome from './components/DesktopHome.vue'
 import RequestsPage from './components/RequestsPage.vue'
 import NotificationsPage from './components/NotificationsPage.vue'
-import QrScanner from './components/QrScanner.vue'
+import ProfilePage from './components/ProfilePage.vue'
+import ScannerFlow from './components/scanner/ScannerFlow.vue'
 import FeedbackSheet from './components/FeedbackSheet.vue'
+import StudentCodeSheet from './components/StudentCodeSheet.vue'
+import QrCode from './components/widgets/QrCode.vue'
+import { studentCode } from './data/campus'
+import NotificationsPopover from './components/NotificationsPopover.vue'
 import { unreadCount } from './data/notificationStore'
+import { useMediaQuery } from './composables/useMediaQuery'
 import logo from './assets/figma/logo.png'
 import scannerIcon from './assets/figma/scanner.svg'
 import helpIcon from './assets/figma/help.svg'
@@ -30,9 +38,14 @@ const isAuthenticated = ref(false)
 const statusText = ref('')
 const serviceQuery = ref('')
 const scannerOpen = ref(false)
+const studentCodeOpen = ref(false)
 const feedbackOpen = ref(false)
 // Заявка, которую нужно открыть после перехода из уведомления.
 const focusRequestId = ref(null)
+// С 1024px главная собирается из виджетов (DesktopHome); граница совпадает с ПК-стилями в styles.css.
+const isDesktop = useMediaQuery('(min-width: 1024px)')
+// Камера есть только на телефоне: при смене раскладки сканер закрываем, чтобы он не открылся снова при возврате.
+watch(isDesktop, () => { scannerOpen.value = false })
 
 // Временный набор данных для демонстрации личного кабинета.
 const services = [
@@ -51,6 +64,12 @@ const navigation = [
   { id: 'notifications', label: 'Уведомления', icon: alertIcon },
   { id: 'profile', label: 'Профиль', icon: profileIcon },
 ]
+
+// На ПК «Уведомления» и «Профиль» переезжают в шапку, в боковом меню остаются остальные.
+const headerIds = ['notifications', 'profile']
+// Уведомления в шапке — поповер (NotificationsPopover), поэтому в цикле остаётся только профиль.
+const headerNavigation = navigation.filter((item) => item.id === 'profile')
+const sideNavigation = computed(() => (isDesktop.value ? navigation.filter((item) => !headerIds.includes(item.id)) : navigation))
 
 const currentTitle = computed(() => navigation.find((item) => item.id === activeNav.value)?.label ?? '')
 const availableServices = computed(() => services.filter((service) => !service.requiresAuth || isAuthenticated.value))
@@ -76,18 +95,16 @@ function authenticate() {
   statusText.value = ''
 }
 
-function onScanDetected(text) {
-  scannerOpen.value = false
-  statusText.value = `Код считан: ${text}`
-}
-
 function openRequestFromNotification(id) {
   focusRequestId.value = id
   selectNav('requests')
 }
 
 function openService(label) {
-  statusText.value = `${label}: демо-раздел пока находится в разработке.`
+  const text = `${label}: демо-раздел пока находится в разработке.`
+  // На ПК строка статуса внизу длинной главной не видна — показываем всплывающее сообщение.
+  if (isDesktop.value) message.info(text)
+  else statusText.value = text
 }
 </script>
 
@@ -100,16 +117,40 @@ function openService(label) {
       </div>
 
       <div class="header-actions">
-        <a-button type="text" class="header-button" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
+        <a-button v-if="!isDesktop" type="text" class="header-button" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
           <img :src="scannerIcon" alt="" aria-hidden="true" />
         </a-button>
         <a-button type="text" class="header-button" aria-label="Обратная связь" @click="feedbackOpen = true">
           <img :src="helpIcon" alt="" aria-hidden="true" />
         </a-button>
+        <!-- На ПК уведомления и профиль живут в шапке, а не в боковом меню. -->
+        <template v-if="isDesktop">
+          <NotificationsPopover
+            :active="activeNav === 'notifications'"
+            @open-request="openRequestFromNotification"
+            @open-schedule="openService('Расписание')"
+            @open-all="selectNav('notifications')"
+          />
+          <a-button
+            v-for="item in headerNavigation"
+            :key="item.id"
+            type="text"
+            class="header-button header-nav"
+            :class="{ active: activeNav === item.id }"
+            :aria-label="item.id === 'notifications' && unreadCount ? `Уведомления, непрочитанных: ${unreadCount}` : item.label"
+            :aria-current="activeNav === item.id ? 'page' : undefined"
+            @click="selectNav(item.id)"
+          >
+            <span class="header-nav-icon">
+              <img :src="item.icon" alt="" aria-hidden="true" />
+              <span v-if="item.id === 'notifications' && unreadCount" class="header-nav-badge" aria-hidden="true"></span>
+            </span>
+          </a-button>
+        </template>
       </div>
     </header>
 
-    <section v-if="activeNav === 'home'" class="weather" aria-label="Погода">
+    <section v-if="activeNav === 'home' && !isDesktop" class="weather" aria-label="Погода">
       <div class="weather-temperature"><img :src="cloudIcon" alt="" aria-hidden="true" /><span>19°</span></div>
       <i aria-hidden="true"></i>
       <span class="weather-label">Ощущается</span><span>19°</span>
@@ -117,17 +158,48 @@ function openService(label) {
       <span class="weather-label">Ветер</span><span>5 м/с</span>
     </section>
 
-    <div class="content" :class="{ 'home-content': activeNav === 'home' }">
-      <template v-if="activeNav === 'home'">
+    <div
+      class="content"
+      :class="{
+        'home-content': activeNav === 'home',
+        'desktop-home-content': activeNav === 'home' && isDesktop,
+        'requests-content': activeNav === 'requests',
+      }"
+    >
+      <DesktopHome
+        v-if="activeNav === 'home' && isDesktop"
+        :authenticated="isAuthenticated"
+        @login="authenticate"
+        @open-request="openRequestFromNotification"
+        @open-schedule="openService('Расписание')"
+        @open-service="openService"
+        @open-scanner="scannerOpen = true"
+        @open-student-code="studentCodeOpen = true"
+        @navigate="selectNav"
+      />
+
+      <template v-else-if="activeNav === 'home'">
         <section class="quick-actions" aria-label="Быстрые действия">
-          <a-button class="quick-card scanner-card" @click="scannerOpen = true">
-            <span class="quick-icon scanner-icon"><img :src="quickScanIcon" alt="" aria-hidden="true" /></span>
-            <strong>QR-сканер</strong>
-          </a-button>
-          <a-button class="quick-card requests-card" aria-label="Открыть мои заявки" @click="selectNav('requests')">
-            <span class="quick-icon"><img :src="documentIcon" alt="" aria-hidden="true" /></span>
-            <strong>Мои заявки</strong>
-          </a-button>
+          <button type="button" class="quick-code-card" aria-label="Открыть код для отметки на парах" @click="studentCodeOpen = true">
+            <div class="code-preview-box">
+              <QrCode :text="studentCode" :size="100" :margin="0" :bordered="false" color="#ffffff" label="QR-код пропуска" />
+            </div>
+            <span class="code-card-label">Код для отметки<br />на парах</span>
+          </button>
+          <div class="quick-stack">
+            <button type="button" class="quick-stack-card scanner-card" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
+              <span class="quick-icon scanner-icon"><img :src="quickScanIcon" alt="" aria-hidden="true" /></span>
+              <div class="stack-card-copy">
+                <strong>QR-сканер</strong>
+              </div>
+            </button>
+            <button type="button" class="quick-stack-card requests-card" aria-label="Открыть мои заявки" @click="selectNav('requests')">
+              <span class="quick-icon requests-icon"><img :src="documentIcon" alt="" aria-hidden="true" /></span>
+              <div class="stack-card-copy">
+                <strong>Мои заявки</strong>
+              </div>
+            </button>
+          </div>
         </section>
 
         <section class="services" aria-labelledby="services-title">
@@ -150,7 +222,7 @@ function openService(label) {
 
             <div v-if="restrictedServices.length" class="service-divider" role="separator">
               <span>Доступно после авторизации</span>
-            </div>
+            </div>
 
             <a-button
               v-for="service in restrictedServices"
@@ -239,6 +311,8 @@ function openService(label) {
         @open-schedule="openService('Расписание')"
       />
 
+      <ProfilePage v-else-if="activeNav === 'profile'" />
+
       <section v-else class="empty-page" :aria-labelledby="`${activeNav}-title`">
         <h1 :id="`${activeNav}-title`">{{ currentTitle }}</h1>
         <p>Пока здесь пусто.</p>
@@ -247,12 +321,13 @@ function openService(label) {
       <p v-if="statusText" class="status" role="status" aria-live="polite">{{ statusText }}</p>
     </div>
 
-    <QrScanner v-if="scannerOpen" @close="scannerOpen = false" @detect="onScanDetected" />
+    <ScannerFlow v-if="scannerOpen" @close="scannerOpen = false" @open-requests="scannerOpen = false; selectNav('requests')" />
     <FeedbackSheet :open="feedbackOpen" @close="feedbackOpen = false" />
+    <StudentCodeSheet :open="studentCodeOpen" @close="studentCodeOpen = false" />
 
     <nav class="bottom-nav" aria-label="Основная навигация">
       <a-button
-        v-for="item in navigation"
+        v-for="item in sideNavigation"
         :key="item.id"
         type="text"
         class="nav-item"

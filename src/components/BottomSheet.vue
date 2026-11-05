@@ -1,8 +1,13 @@
 <script setup>
 // Нижняя шторка с ручкой: список вариантов для выбора одного или произвольное содержимое через слот.
 // Закрывается по Escape, по маске и свайпом вниз за ручку.
+import { useMediaQuery } from '../composables/useMediaQuery'
+
+const isDesktop = useMediaQuery('(min-width: 1024px)')
 defineProps({
   open: Boolean,
+  // Шторку поверх экрана сканера (z-index 1100) нужно поднять выше него.
+  zIndex: { type: Number, default: undefined },
   title: { type: String, default: '' },
   // [{ value, label, hint?, count? }]
   options: { type: Array, default: () => [] },
@@ -38,7 +43,30 @@ function onGrabEnd(event) {
 </script>
 
 <template>
-  <a-drawer :open="open" placement="bottom" height="auto" :closable="false" :push="false" root-class-name="bottom-sheet" @close="emit('close')">
+  <!-- На ПК вместо нижней шторки — центрированный модал с тем же содержимым. -->
+  <a-modal v-if="isDesktop" :open="open" :z-index="zIndex" :title="title" :footer="null" :width="420" centered wrap-class-name="bottom-sheet bottom-sheet-modal" @cancel="emit('close')">
+    <div v-if="$slots.default" class="sheet-content"><slot /></div>
+    <div v-else class="sheet-options" role="radiogroup" :aria-label="title">
+      <button
+        v-for="option in options"
+        :key="option.value"
+        type="button"
+        role="radio"
+        class="sheet-option"
+        :class="{ selected: option.value === value }"
+        :aria-checked="option.value === value"
+        @click="emit('select', option.value)"
+      >
+        <span class="sheet-option-copy">
+          <span class="sheet-option-line">{{ option.label }}<span v-if="option.count != null" class="sheet-option-count">{{ option.count }}</span></span>
+          <small v-if="option.hint">{{ option.hint }}</small>
+        </span>
+        <svg v-if="option.value === value" class="sheet-option-check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </button>
+    </div>
+  </a-modal>
+
+  <a-drawer v-else :open="open" :z-index="zIndex" placement="bottom" height="auto" :closable="false" :push="false" root-class-name="bottom-sheet" @close="emit('close')">
     <div
       class="sheet-grabber"
       @pointerdown="onGrabStart"
@@ -47,7 +75,7 @@ function onGrabEnd(event) {
       @pointercancel="onGrabEnd"
     >
       <i class="sheet-handle" aria-hidden="true"></i>
-      <h2 class="sheet-title">{{ title }}</h2>
+      <h2 v-if="title" class="sheet-title">{{ title }}</h2>
     </div>
     <!-- Если передан слот — показываем его (форма и т. п.), иначе список вариантов. -->
     <div v-if="$slots.default" class="sheet-content"><slot /></div>

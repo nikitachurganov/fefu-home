@@ -2,8 +2,17 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import BottomSheet from './BottomSheet.vue'
-import { mockRequests } from '../data/requests'
+import RequestHighlightCard from './RequestHighlightCard.vue'
+import HighlightsSlider from './HighlightsSlider.vue'
+import RequestCodeModal from './RequestCodeModal.vue'
+import PhotoCapture from './PhotoCapture.vue'
+import ProblemReportSheet from './ProblemReportSheet.vue'
+import { useMediaQuery } from '../composables/useMediaQuery'
+import { codeActionsFor } from '../data/actionCodes'
+import { pushNotification } from '../data/notificationStore'
+import { requests, updateRequest } from '../data/requestStore'
 import {
+  addProblem,
   canCancel,
   cancelRequest,
   countByFilter,
@@ -11,6 +20,7 @@ import {
   feedRequests,
   formatWhen,
   isMultiDay,
+  parts,
   pickHighlights,
   requestFilters,
   requestGroups,
@@ -18,17 +28,13 @@ import {
   requestSources,
   requestSteps,
   requestStatuses,
+  startAfterPhoto,
   statusHints,
-  timerLabel,
-  whenLabel,
 } from '../data/requestModel'
 import dateIcon from '../assets/requests/date.svg'
 import placeIcon from '../assets/requests/place.svg'
-import placeWhiteIcon from '../assets/requests/place-white.svg'
 import dateMutedIcon from '../assets/requests/date-muted.svg'
 import placeMutedIcon from '../assets/requests/place-muted.svg'
-import rightMutedIcon from '../assets/requests/right-muted.svg'
-import rightWhiteIcon from '../assets/requests/right-white.svg'
 import chevronIcon from '../assets/requests/down.svg'
 import eventsIcon from '../assets/figma/event-candidate-1.svg'
 
@@ -39,7 +45,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['login', 'focused'])
 
-const requests = ref(mockRequests.map((request) => ({ ...request })))
 const selectedSource = ref('events')
 const selectedFilter = ref('all')
 const selectedId = ref(null)
@@ -65,15 +70,17 @@ function pickOption(value) {
 const emptyText = computed(() => requestGroups.find((group) => group.key === selectedFilter.value)?.emptyText ?? 'В этом разделе у вас пока нет заявок')
 const openCounts = computed(() => countOpenBySource(requests.value))
 const highlights = computed(() => pickHighlights(requests.value))
+// На ПК плитки разложены на два слайдера: активные (с таймером) и ближайшие.
+const isDesktop = useMediaQuery('(min-width: 1024px)')
+const desktopHighlights = computed(() => pickHighlights(requests.value, 20))
+const activeHighlights = computed(() => desktopHighlights.value.filter((request) => request.status === 'active'))
+const upcomingHighlights = computed(() => desktopHighlights.value.filter((request) => request.status !== 'active'))
 
 // Таймер активной заявки тикает раз в секунду, пока открыта страница.
 const now = ref(Date.now())
 let tick
 onMounted(() => { tick = setInterval(() => { now.value = Date.now() }, 1000) })
 onBeforeUnmount(() => clearInterval(tick))
-const timerOf = (request) => timerLabel(request, now.value)
-// У активной заявки плитка цветная (синяя, жёлтая или красная) — текст и иконки белые.
-const onDark = (request) => request.status === 'active'
 const highlightIndex = ref(0)
 function onHighlightsScroll(event) {
   const track = event.currentTarget
@@ -106,6 +113,34 @@ watch(confirmingCancel, async (open) => {
   cancelBox.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 })
 
+// Коды, которые пользователь может показать сотруднику на текущем этапе заявки.
+const codeActions = computed(() => (selectedRequest.value ? codeActionsFor(selectedRequest.value, requests.value) : []))
+const codeView = ref(null)
+const problemOpen = ref(false)
+const canReportProblem = computed(() => selectedRequest.value?.status === 'active' && selectedRequest.value.source !== 'events')
+
+// Фото сделано — пользование начинается, таймер запускается сам: заявка становится «Используется сейчас».
+function startUsing(photo) {
+  const request = selectedRequest.value
+  if (!request) return
+  updateRequest(request.id, (item) => startAfterPhoto(item, photo))
+  pushNotification({
+    severity: 'success',
+    title: 'Пользование началось',
+    body: `${request.title}: верните до ${parts(request.endsAt).time}.`,
+    target: { kind: 'request', id: request.id },
+  })
+  message.success('Пользование началось')
+}
+
+function reportProblem(text) {
+  const request = selectedRequest.value
+  if (!request) return
+  updateRequest(request.id, (item) => addProblem(item, text))
+  problemOpen.value = false
+  message.success('Сообщение отправлено, сотрудник увидит его при приёмке')
+}
+
 function iconsFor(request) {
   if (request.statusGroup === 'archive') return { date: dateMutedIcon, place: placeMutedIcon }
   return { date: dateIcon, place: placeIcon }
@@ -131,40 +166,20 @@ function confirmCancel() {
     </div>
 
     <template v-else>
-      <section v-if="highlights.length" class="request-highlights" aria-label="Ближайшие заявки">
+      <div v-if="isDesktop && highlights.length" class="desktop-sliders">
+        <HighlightsSlider v-if="activeHighlights.length" title="Активные" :items="activeHighlights" :now="now" @open="selectedId = $event" />
+        <HighlightsSlider v-if="upcomingHighlights.length" title="Ближайшие" :items="upcomingHighlights" :now="now" @open="selectedId = $event" />
+      </div>
+
+      <section v-else-if="highlights.length" class="request-highlights" aria-label="Ближайшие заявки">
         <div class="highlights-track" @scroll.passive="onHighlightsScroll">
-          <button
+          <RequestHighlightCard
             v-for="request in highlights"
             :key="request.id"
-            type="button"
-            class="highlight-card"
-            :class="request.status === 'active' ? ['is-active', `state-${timerOf(request).state}`] : null"
-            :aria-label="`${request.status === 'active' ? `Активная заявка: ${request.title}. ${timerOf(request).overdue ? 'Превышено на' : 'Осталось'} ${timerOf(request).spoken}` : `Ближайшая заявка: ${request.title}. ${whenLabel(request)}`}. ${request.place}`"
-            @click="selectedId = request.id"
-          >
-            <span class="highlight-top">
-              <span class="highlight-tag">{{ request.status === 'active' ? (timerOf(request).overdue ? 'Просрочено' : 'Активная') : 'Ближайшая' }}</span>
-              <img :src="onDark(request) ? rightWhiteIcon : rightMutedIcon" alt="" />
-            </span>
-            <strong>{{ request.title }}</strong>
-            <span
-              v-if="request.status === 'active'"
-              class="highlight-progress"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              :aria-valuenow="timerOf(request).percent"
-              :aria-valuetext="`${timerOf(request).overdue ? 'Превышено на' : 'Осталось'} ${timerOf(request).spoken}`"
-            >
-              <span class="progress-head">
-                <span>{{ timerOf(request).overdue ? 'Превышено на' : 'Осталось' }}</span>
-                <b class="timer-value">{{ timerOf(request).text }}</b>
-              </span>
-              <span class="progress-track"><span class="progress-fill" :style="{ width: `${timerOf(request).percent}%` }"></span></span>
-            </span>
-            <span v-else class="request-meta"><img :src="dateMutedIcon" alt="" />{{ whenLabel(request) }}</span>
-            <span class="request-meta"><img :src="onDark(request) ? placeWhiteIcon : placeMutedIcon" alt="" />{{ request.place }}</span>
-          </button>
+            :request="request"
+            :now="now"
+            @open="selectedId = $event"
+          />
         </div>
         <div v-if="highlights.length > 1" class="highlight-dots" aria-hidden="true">
           <i v-for="(request, index) in highlights" :key="request.id" :class="{ on: index === highlightIndex }"></i>
@@ -260,6 +275,16 @@ function confirmCancel() {
           :description="selectedRequest.reason"
         />
 
+        <div v-if="codeActions.length" class="request-actions">
+          <a-button v-for="action in codeActions" :key="action.kind" type="primary" size="large" block @click="codeView = action">{{ action.label }}</a-button>
+        </div>
+        <PhotoCapture v-if="selectedRequest.status === 'issued'" :label="selectedRequest.source === 'workplace' ? 'Сфотографируйте рабочее место' : 'Сфотографируйте предмет'" @confirm="startUsing" />
+        <img v-if="selectedRequest.photo" class="request-photo-taken" :src="selectedRequest.photo" alt="Снимок перед началом пользования" />
+        <ul v-if="selectedRequest.problems?.length" class="request-problems" aria-label="Сообщения о проблемах">
+          <li v-for="(problem, index) in selectedRequest.problems" :key="index">{{ problem.text }}</li>
+        </ul>
+        <a-button v-if="canReportProblem" size="large" block @click="problemOpen = true">Сообщить о проблеме</a-button>
+
         <a-steps class="request-steps" direction="vertical" size="small" :current="steps.current" :status="steps.status" :items="steps.titles.map((title) => ({ title }))" />
 
         <template v-if="canCancel(selectedRequest)">
@@ -275,6 +300,9 @@ function confirmCancel() {
         </template>
       </div>
     </a-modal>
+
+    <RequestCodeModal :open="!!codeView" :code="codeView" @close="codeView = null" />
+    <ProblemReportSheet :open="problemOpen" @close="problemOpen = false" @submit="reportProblem" />
   </section>
 </template>
 
@@ -292,23 +320,7 @@ function confirmCancel() {
 .request-highlights { margin: 0 -12px; padding: 0 0 12px; background: var(--requests-surface); }
 .highlights-track { display: flex; gap: 8px; padding: 0 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 12px; scrollbar-width: none; }
 .highlights-track::-webkit-scrollbar { display: none; }
-.highlight-card { display: flex; flex: 0 0 min(260px, 78%); flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border: 0; border-radius: var(--requests-radius); background: #e8e8e8; color: rgba(0, 0, 0, .88); text-align: left; cursor: pointer; scroll-snap-align: start; transition: opacity 150ms ease; }
-.highlight-card.is-active { --track: rgba(255, 255, 255, .28); --fill: #d6e8ff; background: linear-gradient(122.46deg, #0067b1 0%, #479ae8 100%); color: #fff; }
-/* Цвет плитки зависит от времени: идёт — синяя, подходит к концу — жёлтая, просрочена — красная; шкала в оттенке плитки. */
-.highlight-card.state-soon { --track: rgba(255, 255, 255, .28); --fill: #fff8d1; background: linear-gradient(122.46deg, #d4b106 0%, #fadb14 100%); color: #fff; }
-.highlight-card.state-overdue { --track: rgba(255, 255, 255, .28); --fill: #ffd6d6; background: linear-gradient(122.46deg, #cf1322 0%, #ff4d4f 100%); color: #fff; }
-.highlight-card:active { opacity: .85; }
-.highlight-card:focus-visible { outline: 3px solid var(--requests-primary); outline-offset: 2px; }
-.highlight-card strong { display: block; max-width: 100%; overflow: hidden; font-size: 17px; line-height: 24px; text-overflow: ellipsis; white-space: nowrap; }
-.highlight-card.is-active .request-meta { color: rgba(255, 255, 255, .92); }
-.highlight-progress { display: grid; width: 100%; gap: 6px; font-size: 13px; line-height: 20px; }
-.progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.timer-value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.progress-track { display: block; height: 6px; overflow: hidden; border-radius: 3px; background: var(--track); }
-.progress-fill { display: block; height: 100%; border-radius: 3px; background: var(--fill); }
-.highlight-top { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
-.highlight-tag { padding: 0 8px; border-radius: 4px; background: rgba(0, 0, 0, .08); font-size: 12px; line-height: 20px; }
-.highlight-card.is-active .highlight-tag { background: rgba(255, 255, 255, .24); }
+.highlight-card { flex: 0 0 min(260px, 78%); scroll-snap-align: start; }
 .highlight-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
 .highlight-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .18); transition: width 150ms ease, background-color 150ms ease; }
 .highlight-dots i.on { width: 16px; background: var(--requests-primary); }
@@ -348,9 +360,31 @@ function confirmCancel() {
 .request-details p { display: flex; align-items: flex-start; gap: 8px; margin: 0; line-height: 20px; }
 .request-details p img { margin-top: 3px; flex-shrink: 0; }
 .request-steps { padding: 4px 0; }
+.request-actions { display: grid; gap: 8px; }
+.request-photo-taken { width: 100%; max-height: 160px; border-radius: 12px; object-fit: cover; }
+.request-problems { display: grid; gap: 4px; margin: 0; padding: 8px 12px 8px 28px; border-radius: var(--requests-radius); background: #fff7e6; color: rgba(0, 0, 0, .88); font-size: 14px; line-height: 20px; }
 .cancel-confirm { display: grid; gap: 8px; padding: 12px; border-radius: var(--requests-radius); background: #fff1f0; font-size: 14px; line-height: 20px; }
 .cancel-confirm span { color: var(--requests-secondary); }
 .cancel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+/* ПК: поля задаёт .content, поэтому мобильные «белые полосы» на отрицательных отступах
+   превращаются в карточки на сером фоне. Ближайшие заявки — сеткой вместо скрытой прокрутки,
+   основной список — в две колонки комфортной ширины. */
+@media (min-width: 1024px) {
+  .requests-title.ant-typography { margin: 0; padding: 24px 0 16px; background: transparent; }
+  .requests-login { margin: 0; padding: 32px; border-radius: 16px; }
+  .desktop-sliders { display: flex; margin-bottom: 16px; padding: 20px; flex-direction: column; gap: 20px; border-radius: 16px; background: var(--requests-surface); }
+  .request-highlights { margin: 0 0 16px; padding: 0; background: transparent; }
+  .highlights-track { display: grid; padding: 0; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; overflow: visible; }
+  .highlight-card { flex: none; }
+  .highlight-card:not(.is-active) { background: var(--requests-surface); }
+  .highlight-dots { display: none; }
+  .request-sources-bar { display: flex; top: 64px; margin: 0; padding: 4px 20px 12px; align-items: flex-end; justify-content: space-between; gap: 24px; border-bottom: 0; border-radius: 16px; }
+  .request-sources.ant-tabs { min-width: 0; margin: 0; padding: 0; }
+  .request-controls { flex-shrink: 0; margin-top: 0; grid-template-columns: repeat(2, 220px); }
+  .request-list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+  .request-card { padding: 8px; }
+  .request-card:hover { box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+}
 @media (max-width: 355px) {
   .request-sources :deep(.ant-tabs-tab) { font-size: 13px; }
   .request-sources :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 10px; }

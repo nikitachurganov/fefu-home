@@ -5,7 +5,8 @@ import BottomSheet from './BottomSheet.vue'
 import chevronIcon from '../assets/requests/down.svg'
 import { FEEDBACK_MAX, FEEDBACK_MIN, feedbackCategories, submitFeedback } from '../data/feedback'
 
-defineProps({ open: Boolean })
+// zIndex нужен, когда шторка открывается поверх экрана сканера (z-index 1100).
+defineProps({ open: Boolean, zIndex: { type: Number, default: undefined } })
 const emit = defineEmits(['close'])
 
 const category = ref(null)
@@ -67,7 +68,7 @@ function cancel() {
 </script>
 
 <template>
-  <BottomSheet :open="open" title="Обратная связь" @close="emit('close')">
+  <BottomSheet :open="open" :z-index="zIndex" title="Обратная связь" @close="emit('close')">
     <form class="feedback-form" novalidate @submit.prevent="submit">
       <div class="field">
         <button
@@ -118,6 +119,7 @@ function cancel() {
 
   <BottomSheet
     :open="categorySheetOpen"
+    :z-index="zIndex ? zIndex + 10 : undefined"
     title="Категория"
     :options="feedbackCategories"
     :value="category"

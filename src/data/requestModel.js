@@ -2,6 +2,7 @@ export const requestSources = [
   { value: 'events', label: 'Мероприятия' },
   { value: 'equipment', label: 'Оборудование' },
   { value: 'tmc', label: 'ТМЦ' },
+  { value: 'workplace', label: 'Места' },
 ]
 
 export const requestGroups = [
@@ -18,6 +19,9 @@ export const requestStatuses = {
   completed: { label: 'Завершена', color: 'default' },
   rejected: { label: 'Отклонена', color: 'red' },
   cancelled: { label: 'Отменена', color: 'default' },
+  // Появляются при работе сканера: отметка на мероприятии и выдача, ожидающая фото пользователя.
+  'checked-in': { label: 'Вы отметились', color: 'green' },
+  issued: { label: 'Сделайте фото', color: 'gold' },
 }
 
 export const requestSortOptions = [
@@ -30,7 +34,7 @@ export const requestSortOptions = [
 // остаются подтверждёнными до явного изменения их состояния.
 // Актуальность: используется сейчас → подтверждены → на модерации → архив.
 const relevanceRank = (request) => {
-  if (request.status === 'active') return 0
+  if (request.status === 'active' || request.status === 'issued') return 0
   if (request.statusGroup === 'confirmed') return 1
   return request.statusGroup === 'moderation' ? 2 : 3
 }
@@ -54,12 +58,14 @@ const TIME_ZONE = 'Asia/Vladivostok'
 
 export const statusHints = {
   confirmed: { type: 'success', text: 'Заявка подтверждена. Приходите в указанное время.' },
-  upcoming: { type: 'success', text: 'Заявка подтверждена. Заберите предмет в указанное время.' },
+  upcoming: { type: 'success', text: 'Заявка подтверждена. Приходите в указанное время и покажите код заявки сотруднику.' },
   active: { type: 'info', text: 'Предмет сейчас у вас. Верните его до конца указанного времени.' },
   review: { type: 'warning', text: 'Заявку проверяет администратор. Ответ придёт в уведомлениях.' },
   completed: { type: 'info', text: 'Заявка выполнена.' },
   rejected: { type: 'error', text: 'Заявка отклонена.' },
   cancelled: { type: 'info', text: 'Заявка отменена.' },
+  'checked-in': { type: 'success', text: 'Вы отметились на мероприятии.' },
+  issued: { type: 'warning', text: 'Сфотографируйте предмет или место, чтобы начать пользование.' },
 }
 
 // Отменить можно только то, что ещё не началось: заявку на модерации
@@ -71,6 +77,21 @@ export function canCancel(request) {
 export function cancelRequest(request, now = new Date()) {
   return { ...request, statusGroup: 'archive', status: 'cancelled', archivedAt: now.toISOString() }
 }
+
+// Переходы заявки по итогам сканирования и действий пользователя: чистые функции, как cancelRequest.
+export const checkIn = (request, now = new Date()) => ({ ...request, status: 'checked-in', checkedInAt: now.toISOString() })
+export const startAfterPhoto = (request, photo, now = new Date()) => ({ ...request, status: 'active', photo, startedAt: now.toISOString() })
+// Сотрудник подтвердил выдачу: items уже содержат конкретные единицы, остаётся фото пользователя.
+export const confirmIssue = (request, items = request.items) => ({ ...request, status: 'issued', items })
+// Приёмка или чекаут завершены: заявка уходит в архив, замечание сотрудника сохраняется.
+export const completeRequest = (request, note = '', now = new Date()) => ({
+  ...request,
+  statusGroup: 'archive',
+  status: 'completed',
+  archivedAt: now.toISOString(),
+  ...(note ? { returnNote: note } : {}),
+})
+export const addProblem =(request, text, now = new Date()) => ({ ...request, problems: [...(request.problems ?? []), { text, createdAt: now.toISOString() }] })
 
 const dayKey = (date) => new Date(date).toLocaleDateString('en-CA', { timeZone: TIME_ZONE })
 
@@ -93,13 +114,18 @@ export function countOpenBySource(requests) {
 
 // Шаги жизненного цикла заявки для вертикального таймлайна.
 export function requestSteps(request) {
-  const done = request.source === 'events' ? 'Мероприятие проведено' : 'Предмет возвращён'
-  const inUse = request.source === 'events' ? null : 'Предмет у вас'
-  const full = ['Заявка подана', 'Модерация', 'Подтверждена', ...(inUse ? [inUse] : []), done]
+  const isEvent = request.source === 'events'
+  const isPlace = request.source === 'workplace'
+  const done = isEvent ? 'Мероприятие проведено' : isPlace ? 'Место сдано' : 'Предмет возвращён'
+  const middle = isEvent ? 'Вы отметились' : isPlace ? 'Место за вами' : 'Предмет у вас'
+  const full = ['Заявка подана', 'Модерация', 'Подтверждена', middle, done]
   switch (request.status) {
     case 'review': return { titles: full.slice(0, 2), current: 1, status: 'process' }
     case 'confirmed':
     case 'upcoming': return { titles: full, current: 2, status: 'finish' }
+    // Выдача подтверждена, но пользователь ещё не сфотографировал предмет.
+    case 'issued': return { titles: full, current: 2, status: 'process' }
+    case 'checked-in': return { titles: full, current: 3, status: 'finish' }
     case 'active': return { titles: full, current: 3, status: 'process' }
     case 'completed': return { titles: full, current: full.length - 1, status: 'finish' }
     case 'rejected': return { titles: ['Заявка подана', 'Модерация', 'Отклонена'], current: 2, status: 'error' }
@@ -137,6 +163,12 @@ export function parts(iso) {
   const [key, time] = new Date(iso).toLocaleString('sv-SE', { timeZone: TIME_ZONE }).split(' ')
   const [year, month, day] = key.split('-').map(Number)
   return { key, year, month, day, time: time.slice(0, 5) }
+}
+
+// «24.09.2026, 18:00» — точная дата и время для сводок вроде «Сессия завершена».
+export function dateTimeLabel(iso) {
+  const { day, month, year, time } = parts(iso)
+  return `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}, ${time}`
 }
 
 export const isMultiDay = (request) => parts(request.startsAt).key !== parts(request.endsAt).key

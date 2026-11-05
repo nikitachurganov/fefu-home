@@ -6,21 +6,13 @@ import {
   formatTime,
   groupByDay,
   notificationCategories,
+  notificationIcons,
   notificationTypes,
   unreadByCategory,
 } from '../data/notificationModel'
 
 defineProps({ authenticated: Boolean })
 const emit = defineEmits(['login', 'open-request', 'open-schedule'])
-
-// Контуры иконок (24×24, stroke), цвет задаёт важность уведомления.
-const iconPaths = {
-  doc: 'M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6',
-  calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
-  cap: 'M2 9l10-5 10 5-10 5z M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5',
-  box: 'M4 8l8-4 8 4v9l-8 4-8-4z M4 8l8 4 8-4 M12 12v9',
-  alert: 'M12 3l10 18H2z M12 10v5 M12 18h.01',
-}
 
 const selectedCategory = ref('all')
 
@@ -33,7 +25,7 @@ function openNotification(item) {
   else emit('open-schedule')
 }
 
-const iconFor = (item) => iconPaths[notificationTypes[item.type].icon]
+const iconFor = (item) => notificationIcons[notificationTypes[item.type].icon]
 </script>
 
 <template>
@@ -147,6 +139,24 @@ const iconFor = (item) => iconPaths[notificationTypes[item.type].icon]
 .notification-row { display: flex; width: 100%; align-items: flex-end; gap: 12px; }
 .notification-body { min-width: 0; flex: 1; display: -webkit-box; overflow: hidden; color: var(--n-secondary); font-size: 13px; line-height: 18px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .notifications-empty { padding: 48px 0; }
+/* ПК: мобильные белые полосы на отрицательных отступах становятся карточками на сером фоне;
+   заголовок и «Прочитать все» — над ними, вкладки — в закруглённой плашке, карточки крупнее. */
+@media (min-width: 1024px) {
+  .notifications-title { margin: 0; padding: 24px 0 16px; background: transparent; }
+  .read-all.ant-btn { height: 32px; padding: 0 12px; border-radius: 8px; background: #fff; }
+  .read-all.ant-btn:disabled { background: #fff; }
+  .notifications-login { margin: 0; padding: 32px; border-radius: 16px; }
+  .notifications-bar { top: 64px; margin: 0; padding: 4px 20px; border-bottom: 0; border-radius: 16px; }
+  .notification-tabs :deep(.ant-tabs-tab) { font-size: 15px; }
+  .notification-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 24px; }
+  .notification-groups { gap: 24px; margin-top: 20px; }
+  .notification-card { align-items: center; gap: 16px; padding: 14px 16px; transition: box-shadow 160ms ease, background-color 160ms ease; }
+  .notification-card:hover { box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+  .notification-card:not(.unread) { background: rgba(255, 255, 255, .6); }
+  .notification-card:not(.unread) strong { font-weight: 500; }
+  .notification-body { font-size: 14px; line-height: 20px; }
+  .notification-time { font-size: 13px; }
+}
 @media (max-width: 355px) {
   .notification-tabs :deep(.ant-tabs-tab) { font-size: 13px; }
   .notification-tabs :deep(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 8px; }

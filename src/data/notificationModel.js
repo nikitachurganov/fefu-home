@@ -27,6 +27,15 @@ export const notificationTypes = {
   class_missed: { category: 'classes', icon: 'alert' },
 }
 
+// Контуры иконок (24×24, stroke), цвет задаёт важность уведомления.
+export const notificationIcons = {
+  doc: 'M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6',
+  calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
+  cap: 'M2 9l10-5 10 5-10 5z M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5',
+  box: 'M4 8l8-4 8 4v9l-8 4-8-4z M4 8l8 4 8-4 M12 12v9',
+  alert: 'M12 3l10 18H2z M12 10v5 M12 18h.01',
+}
+
 export const isUrgent = (notification) => notification.severity === 'danger'
 
 export function filterByCategory(notifications, category = 'all') {
@@ -70,3 +79,6 @@ export function groupByDay(notifications, now = new Date()) {
 }
 
 export const formatTime = (iso) => parts(iso).time
+
+// Подпись времени в компактном списке: «Сегодня, 15:20», «Вчера, 10:00», «16 октября, 12:05».
+export const stampLabel = (iso, now = new Date()) => `${dayLabel(iso, now)}, ${formatTime(iso)}`
