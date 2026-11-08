@@ -1,8 +1,9 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { QrcodeOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import DesktopHome from './components/DesktopHome.vue'
+import MobileSessionSlider from './components/MobileSessionSlider.vue'
 import RequestsPage from './components/RequestsPage.vue'
 import NotificationsPage from './components/NotificationsPage.vue'
 import ProfilePage from './components/ProfilePage.vue'
@@ -11,6 +12,7 @@ import FeedbackSheet from './components/FeedbackSheet.vue'
 import StudentCodeSheet from './components/StudentCodeSheet.vue'
 import QrCode from './components/widgets/QrCode.vue'
 import { studentCode } from './data/campus'
+import { requests } from './data/requestStore'
 import NotificationsPopover from './components/NotificationsPopover.vue'
 import { unreadCount } from './data/notificationStore'
 import { useMediaQuery } from './composables/useMediaQuery'
@@ -46,6 +48,13 @@ const focusRequestId = ref(null)
 const isDesktop = useMediaQuery('(min-width: 1024px)')
 // Камера есть только на телефоне: при смене раскладки сканер закрываем, чтобы он не открылся снова при возврате.
 watch(isDesktop, () => { scannerOpen.value = false })
+
+const now = ref(Date.now())
+let tick
+onMounted(() => { tick = setInterval(() => { now.value = Date.now() }, 1000) })
+onBeforeUnmount(() => clearInterval(tick))
+
+const activeHighlights = computed(() => requests.value.filter((request) => request.status === 'active'))
 
 // Временный набор данных для демонстрации личного кабинета.
 const services = [
@@ -179,24 +188,30 @@ function openService(label) {
       />
 
       <template v-else-if="activeNav === 'home'">
+        <MobileSessionSlider
+          v-if="isAuthenticated && activeHighlights.length"
+          :items="activeHighlights"
+          :now="now"
+          @open="openRequestFromNotification"
+        />
         <section class="quick-actions" aria-label="Быстрые действия">
           <button type="button" class="quick-code-card" aria-label="Открыть код для отметки на парах" @click="studentCodeOpen = true">
             <div class="code-preview-box">
-              <QrCode :text="studentCode" :size="100" :margin="0" :bordered="false" color="#ffffff" label="QR-код пропуска" />
-            </div>
-            <span class="code-card-label">Код для отметки<br />на парах</span>
+              <QrCode :text="studentCode" :size="40" :margin="0" :bordered="false" color="#ffffff" label="QR-код пропуска" />
+            </div>
+            <span class="code-card-label">Код для отметки<br />на парах</span>
           </button>
           <div class="quick-stack">
             <button type="button" class="quick-stack-card scanner-card" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
-              <span class="quick-icon scanner-icon"><img :src="quickScanIcon" alt="" aria-hidden="true" /></span>
+              <span class="quick-icon scanner-icon"><img :src="scannerIcon" alt="" aria-hidden="true" /></span>
               <div class="stack-card-copy">
-                <strong>QR-сканер</strong>
+                <strong>QR-сканер</strong>
               </div>
             </button>
             <button type="button" class="quick-stack-card requests-card" aria-label="Открыть мои заявки" @click="selectNav('requests')">
               <span class="quick-icon requests-icon"><img :src="documentIcon" alt="" aria-hidden="true" /></span>
               <div class="stack-card-copy">
-                <strong>Мои заявки</strong>
+                <strong>Мои заявки</strong>
               </div>
             </button>
           </div>
@@ -222,7 +237,7 @@ function openService(label) {
 
             <div v-if="restrictedServices.length" class="service-divider" role="separator">
               <span>Доступно после авторизации</span>
-            </div>
+            </div>
 
             <a-button
               v-for="service in restrictedServices"
@@ -240,8 +255,8 @@ function openService(label) {
           <a-button type="text" class="close-notice" aria-label="Закрыть сообщение" @click="noticeVisible = false">
             <img :src="closeIcon" alt="" aria-hidden="true" />
           </a-button>
-          <h2 id="auth-title">После входа доступно больше сервисов</h2>
-          <p>В личном кабинете доступны заявки, бронирования, расписание, мероприятия и шаттлы.</p>
+          <h2 id="auth-title">Больше возможностей</h2>
+          <p>Доступ к заявкам, бронированиям, персональным настройкам и другим сервисам после авторизации</p>
           <a-button type="primary" block class="login-button" @click="authenticate">Войти в аккаунт</a-button>
           <a-button block class="register-button" @click="authenticate">Зарегистрироваться</a-button>
         </section>
