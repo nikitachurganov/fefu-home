@@ -47,10 +47,11 @@ const comparators = {
   'date-desc': (a, b) => byStart(b, a),
 }
 
-// Единая лента заявок категории с фильтром по статусу и сортировкой.
-export function feedRequests(requests, source, filter = 'all', sort = 'relevance') {
+// Единая лента заявок с фильтрами по категории и статусу и сортировкой.
+export function feedRequests(requests, source = null, filter = 'all', sort = 'relevance') {
   return requests
-    .filter((request) => request.source === source && (filter === 'all' || request.statusGroup === filter))
+    .filter((request) => (source === null || request.source === source)
+      && (filter === 'all' || request.statusGroup === filter))
     .sort(comparators[sort])
 }
 

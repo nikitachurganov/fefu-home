@@ -23,6 +23,17 @@ export const shuttle = {
 
 const toMinutes = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 
+const pluralRules = new Intl.PluralRules('ru')
+export function formatWaitTime(minutes) {
+  const unit = (value, forms) => `${value} ${forms[pluralRules.select(value)]}`
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  const parts = []
+  if (hours) parts.push(unit(hours, { one: 'час', few: 'часа', many: 'часов', other: 'часа' }))
+  if (remainder || !hours) parts.push(unit(remainder, { one: 'минуту', few: 'минуты', many: 'минут', other: 'минуты' }))
+  return parts.join(' ')
+}
+
 // Ближайшие отправления сегодня с минутами до отправления.
 export function nextDepartures(departures, nowMs = Date.now(), count = 3) {
   const now = toMinutes(parts(nowMs).time)

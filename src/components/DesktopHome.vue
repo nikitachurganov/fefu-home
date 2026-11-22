@@ -1,133 +1,677 @@
 <script setup>
-import { computed, markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
-import { QrcodeOutlined, ScanOutlined } from '@ant-design/icons-vue'
-import WidgetCard from './widgets/WidgetCard.vue'
-import QuickActions from './widgets/QuickActions.vue'
-import AttentionWidget from './widgets/AttentionWidget.vue'
-import TodayWidget from './widgets/TodayWidget.vue'
-import ActiveBookingsWidget from './widgets/ActiveBookingsWidget.vue'
-import RequestsWidget from './widgets/RequestsWidget.vue'
-import CampusWidget from './widgets/CampusWidget.vue'
-import GuestWidget from './widgets/GuestWidget.vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  BellOutlined, CloseOutlined,
+  FileTextOutlined, HistoryOutlined, LeftOutlined, LockOutlined, MessageOutlined,
+  QrcodeOutlined,
+  QuestionCircleOutlined, RightOutlined, ScanOutlined, SearchOutlined,
+} from '@ant-design/icons-vue'
+import { weather } from '../data/campus'
+import ProfileMenu from './ProfileMenu.vue'
+import { isDark } from '../data/theme'
+import mapDark from '../assets/services/map-dark.svg'
+import busDark from '../assets/services/bus-dark.svg'
+import educationDark from '../assets/services/edu-dark.svg'
+import eventDark from '../assets/services/event-dark.svg'
+import bookingDark from '../assets/services/calendar-dark.svg'
+import rentalDark from '../assets/services/rent-dark.svg'
 import { requests } from '../data/requestStore'
-import { pickHighlights } from '../data/requestModel'
-import { userName } from '../data/campus'
-import { attentionItems, greeting, todayCaption, upcomingFeed } from '../data/homeModel'
-import calendarIcon from '../assets/figma/calendar.svg'
-import rentIcon from '../assets/figma/rent.svg'
-import eventsIcon from '../assets/figma/events.svg'
-import educationIcon from '../assets/figma/education.svg'
-import gridIcon from '../assets/figma/grid.svg'
+import { feedRequests, parts, requestStatuses } from '../data/requestModel'
+import { role, roleOptions } from '../data/userStore'
+import NotificationsPopover from './NotificationsPopover.vue'
+import DesktopServiceDialog from './DesktopServiceDialog.vue'
+import passDarkIllustration from '../assets/portal/updates/pass-dark.png'
+import scannerDarkIllustration from '../assets/portal/updates/scanner-dark.png'
+import workplaceDarkIllustration from '../assets/portal/updates/workplace-dark.png'
+import shuttlesDarkIllustration from '../assets/portal/updates/shuttles-dark.png'
+import mapDarkIllustration from '../assets/portal/updates/map-dark.png'
+import toolsDarkIllustration from '../assets/portal/updates/tools-dark.png'
+import requestsDarkIllustration from '../assets/portal/updates/requests-dark.png'
+import feedbackDarkIllustration from '../assets/portal/updates/feedback-dark.png'
+import passIllustration from '../assets/portal/updates/pass.png'
+import scannerIllustration from '../assets/portal/updates/scanner.png'
+import workplaceIllustration from '../assets/portal/updates/workplace.png'
+import shuttlesIllustration from '../assets/portal/updates/shuttles.png'
+import mapIllustration from '../assets/portal/updates/map.png'
+import toolsIllustration from '../assets/portal/updates/tools.png'
+import requestsIllustration from '../assets/portal/updates/requests.png'
+import feedbackIllustration from '../assets/portal/updates/feedback.png'
+import logo from '../assets/figma/logo.png'
+import cloudIcon from '../assets/figma/cloud.svg'
+import schedule3d from '../assets/services/schedule-3d.webp'
+import event3d from '../assets/services/event-3d.webp'
+import booking3d from '../assets/services/booking-3d.webp'
+import rental3d from '../assets/services/rental-3d.webp'
+import mapIcon from '../assets/services/map.svg'
+import busIcon from '../assets/services/bus.svg'
+import educationIcon from '../assets/services/edu.svg'
+import eventIcon from '../assets/services/event.svg'
+import bookingIcon from '../assets/services/calendar.svg'
+import rentalIcon from '../assets/services/rent.svg'
 
-// Главная на ПК. Сверху приветствие с погодой и шаттлом, быстрые переходы. Для авторизованного ниже идут:
-// акцентный блок просрочки, «Сейчас у вас» и «Мои заявки» (те же данные, что в мобильном разделе «Заявки»),
-// затем пара карточек равной высоты «Ближайшие 3 дня | Уведомления».
-// Мобильная главная остаётся в App.vue.
-defineProps({ authenticated: Boolean })
-const emit = defineEmits(['login', 'open-request', 'open-schedule', 'open-service', 'open-scanner', 'open-student-code', 'navigate'])
+const props = defineProps({ authenticated: Boolean, services: Array, now: Number })
+const emit = defineEmits(['login', 'open-request', 'open-scanner', 'open-student-code', 'navigate', 'feedback', 'logout'])
 
-// Таймеры активных заявок тикают раз в секунду, пока главная открыта.
-const now = ref(Date.now())
-let tick
-onMounted(() => { tick = setInterval(() => { now.value = Date.now() }, 1000) })
-onBeforeUnmount(() => clearInterval(tick))
+const query = ref('')
+const expanded = ref(false)
+const highlighted = ref(-1)
+const field = ref(null)
+const serviceDetails = ref(null)
+const heroIcons = {
+  'Расписание': schedule3d,
+  'Мероприятия': event3d,
+  'Бронирование': booking3d,
+  'Аренда': rental3d,
+}
+const heroServices = computed(() => Object.keys(heroIcons).map((label) => props.services.find((s) => s.label === label)).filter(Boolean))
+const quickLinks = [
+  { label: 'QR-сканер', action: 'open-scanner' },
+  { label: 'Пропуск', action: 'open-student-code', requiresAuth: true },
+  { label: 'Мои заявки', nav: 'requests', requiresAuth: true },
+  { label: 'Карта кампуса', service: 'Карта' },
+  { label: 'Шаттлы', service: 'Шаттлы' },
+  { label: 'Обратная связь', action: 'feedback' },
+]
+const updates = [
+  { label: 'QR-сканер', description: 'Паспорта объектов и отметка по коду', icon: ScanOutlined, action: 'open-scanner' },
+  { label: 'Мои заявки', description: 'Брони, аренда и статусы заявок', icon: FileTextOutlined, nav: 'requests', requiresAuth: true },
+  { label: 'Обратная связь', description: 'Задать вопрос команде портала', icon: MessageOutlined, action: 'feedback' },
+]
+const pass = { label: 'QR-пропуск', description: 'Код студента для отметки на занятии', icon: QrcodeOutlined, action: 'open-student-code', requiresAuth: true }
+const notificationsCatalogItem = { label: 'Уведомления', description: 'Изменения по вашим заявкам', icon: BellOutlined, nav: 'notifications', requiresAuth: true }
+const featureLabels = [
+  { label: 'Карта', title: 'Карта кампуса', detail: 'Корпуса и маршруты' },
+  { label: 'Шаттлы', title: 'Шаттлы', detail: 'Остановки и рейсы' },
+  { label: 'Расписание', title: 'Расписание занятий', detail: 'Пары и аудитории' },
+  { label: 'Мероприятия', title: 'Мероприятия', detail: 'Афиша событий ДВФУ' },
+  { label: 'Бронирование', title: 'Бронирование', detail: 'Места и оборудование' },
+  { label: 'Аренда', title: 'Аренда', detail: 'Инвентарь и переносное оборудование' },
+]
+const campusDate = computed(() => new Intl.DateTimeFormat('ru-RU', {
+  weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Vladivostok',
+}).format(props.now))
+const requestDateFormat = new Intl.DateTimeFormat('ru-RU', {
+  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Vladivostok',
+})
+const myRequests = computed(() => props.authenticated
+  ? feedRequests(requests.value.filter(item => !item.instructor))
+  : [])
 
-const feed = computed(() => upcomingFeed(requests.value, now.value))
-const attention = computed(() => attentionItems(requests.value, now.value))
-const highlights = computed(() => pickHighlights(requests.value))
-const caption = computed(() => todayCaption(now.value))
+const requestViewport = ref(null)
+const requestList = ref(null)
+const hasRequestsAbove = ref(false)
+const hasRequestsBelow = ref(false)
+const requestThumbHeight = ref(0)
+const requestThumbOffset = ref(0)
+const scrollingRequests = ref(false)
+let hideRequestThumb
 
-const quickActions = [
-  { id: 'booking', label: 'Бронирование', icon: calendarIcon, requiresAuth: true, service: 'Бронирование' },
-  { id: 'rent', label: 'Аренда ТМЦ', icon: rentIcon, requiresAuth: true, service: 'Аренда' },
-  { id: 'events', label: 'Мероприятия', icon: eventsIcon, requiresAuth: true, service: 'Мероприятия' },
-  { id: 'schedule', label: 'Расписание', icon: educationIcon, requiresAuth: true, service: 'Расписание' },
-  { id: 'student-code', label: 'Код студента', component: markRaw(QrcodeOutlined) },
-  // Паспорта объектов сканируют все, поэтому вход в сканер доступен и без авторизации.
-  { id: 'scanner', label: 'Сканер', component: markRaw(ScanOutlined) },
-  { id: 'services', label: 'Все сервисы', icon: gridIcon },
+function updateRequestScrollState() {
+  const el = requestViewport.value
+  if (!el) return
+  const { clientHeight, scrollHeight, scrollTop } = el
+  const range = scrollHeight - clientHeight
+  hasRequestsAbove.value = scrollTop > 1
+  hasRequestsBelow.value = range - scrollTop > 1
+  requestThumbHeight.value = range > 0
+    ? Math.min(clientHeight, Math.max(24, clientHeight * clientHeight / scrollHeight))
+    : 0
+  const position = range > 0 ? Math.min(1, Math.max(0, scrollTop / range)) : 0
+  requestThumbOffset.value = (clientHeight - requestThumbHeight.value) * position
+}
+
+function onRequestScroll() {
+  updateRequestScrollState()
+  scrollingRequests.value = true
+  clearTimeout(hideRequestThumb)
+  hideRequestThumb = setTimeout(() => { scrollingRequests.value = false }, 500)
+}
+
+watch([requestViewport, requestList], ([viewport, list], _, onCleanup) => {
+  if (!viewport || !list) return
+  updateRequestScrollState()
+  const observer = new ResizeObserver(updateRequestScrollState)
+  observer.observe(viewport)
+  observer.observe(list)
+  onCleanup(() => {
+    observer.disconnect()
+    clearTimeout(hideRequestThumb)
+    scrollingRequests.value = false
+  })
+}, { flush: 'post' })
+
+const math = { start: '09:00', end: '10:30', title: 'Математический анализ' }
+const english = { start: '10:40', end: '12:10', title: 'Английский язык' }
+const programming = { start: '13:00', end: '14:30', title: 'Программирование' }
+const demoWeek = [
+  [math, english, programming],
+  [english, programming],
+  [],
+  [math, english, programming],
+  [math, programming],
+  [],
+  [],
+]
+const lessonDateFormat = new Intl.DateTimeFormat('ru-RU', {
+  weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
+})
+const lessonSchedule = computed(() => {
+  const { year, month, day } = parts(props.now)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const weekday = (date.getUTCDay() + 6) % 7
+  const offset = demoWeek.findIndex((_, index) => demoWeek[(weekday + index) % 7].length > 0)
+  date.setUTCDate(date.getUTCDate() + offset)
+  return { date, lessons: demoWeek[(weekday + offset) % 7] }
+})
+const usefulServices = [
+  { label: 'Карта', icon: mapIcon, darkIcon: mapDark, service: 'Карта' },
+  { label: 'Шаттлы', icon: busIcon, darkIcon: busDark, service: 'Шаттлы' },
+  { label: 'Расписание', icon: educationIcon, darkIcon: educationDark, service: 'Расписание' },
+  { label: 'Мероприятия', icon: eventIcon, darkIcon: eventDark, service: 'Мероприятия' },
+  { label: 'Бронирование', icon: bookingIcon, darkIcon: bookingDark, service: 'Бронирование' },
+  { label: 'Аренда', icon: rentalIcon, darkIcon: rentalDark, service: 'Аренда' },
+]
+const features = computed(() => featureLabels.map((feature) => ({
+  ...props.services.find((item) => item.label === feature.label), ...feature,
+})))
+const locked = (item) => Boolean(item?.requiresAuth && !props.authenticated)
+const catalog = computed(() => [...props.services, pass, ...updates, notificationsCatalogItem])
+const normalize = (value) => value.toLocaleLowerCase('ru').replaceAll('ё', 'е').trim()
+const results = computed(() => {
+  const words = normalize(query.value).split(/\s+/)
+  return catalog.value.filter((item) => {
+    const feature = features.value.find((entry) => entry.label === item.label)
+    const text = normalize([item.label, item.description, feature?.title, feature?.detail].join(' '))
+    return words.every((word) => text.includes(word))
+  })
+})
+watch(query, () => { highlighted.value = -1 })
+function choose(item) {
+  if (!item) return
+  if (locked(item) && (item.nav || item.action)) { emit('login'); return }
+  expanded.value = false
+  if (item.nav) emit('navigate', item.nav)
+  else if (item.action) emit(item.action)
+  else serviceDetails.value = item
+}
+function openByLabel(label) {
+  choose(catalog.value.find((item) => item.label === label))
+}
+function handleServiceClick(item) {
+  openByLabel(item.label)
+}
+
+const newTrack = ref(null)
+const canScrollPrev = ref(false)
+const canScrollNext = ref(true)
+
+function updateScrollState() {
+  const el = newTrack.value
+  if (!el) return
+  canScrollPrev.value = el.scrollLeft > 6
+  canScrollNext.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 6
+}
+
+function scrollNewTrack(direction) {
+  const el = newTrack.value
+  if (!el) return
+  const card = el.querySelector('.new-portal-card')
+  if (!card) return
+  const gap = Number.parseFloat(getComputedStyle(el).columnGap)
+  const step = 2 * (card.offsetWidth + gap)
+  el.scrollBy({ left: direction * step, behavior: 'smooth' })
+}
+
+let trackResizeObserver
+onMounted(() => {
+  nextTick(() => {
+    updateScrollState()
+    if (newTrack.value && typeof ResizeObserver !== 'undefined') {
+      trackResizeObserver = new ResizeObserver(updateScrollState)
+      trackResizeObserver.observe(newTrack.value)
+    }
+  })
+})
+onBeforeUnmount(() => trackResizeObserver?.disconnect())
+
+const darkCoverColors = { pass: '#29283d', scanner: '#263449', workplace: '#302e42', shuttles: '#273448', map: '#292d43', tools: '#283b39', requests: '#3b302c', feedback: '#39303e' }
+const newPortalItems = [
+  {
+    id: 'pass',
+    illustration: passIllustration,
+    darkIllustration: passDarkIllustration,
+    title: 'QR-пропуск для быстрой отметки на парах',
+    badgeBg: '#f0eefb',
+    action: 'open-student-code',
+    requiresAuth: true,
+  },
+  {
+    id: 'scanner',
+    illustration: scannerIllustration,
+    darkIllustration: scannerDarkIllustration,
+    title: 'Паспорта кабинетов и техники по QR-коду',
+    badgeBg: '#eaf2fd',
+    action: 'open-scanner',
+  },
+  {
+    id: 'workplace',
+    illustration: workplaceIllustration,
+    darkIllustration: workplaceDarkIllustration,
+    title: 'Бронирование мест и коворкингов в кампусе',
+    badgeBg: '#fef3eb',
+    service: 'Бронирование',
+  },
+  {
+    id: 'shuttles',
+    illustration: shuttlesIllustration,
+    darkIllustration: shuttlesDarkIllustration,
+    title: 'Расписание и остановки шаттлов кампуса',
+    badgeBg: '#eaf4fd',
+    service: 'Шаттлы',
+  },
+  {
+    id: 'map',
+    illustration: mapIllustration,
+    darkIllustration: mapDarkIllustration,
+    title: 'Корпуса, общежития и навигация по ДВФУ',
+    badgeBg: '#eff4fe',
+    service: 'Карта',
+  },
+  {
+    id: 'tools',
+    illustration: toolsIllustration,
+    darkIllustration: toolsDarkIllustration,
+    title: 'Аренда инвентаря и переносного оборудования',
+    badgeBg: '#eef8f2',
+    service: 'Аренда',
+  },
+  {
+    id: 'requests',
+    illustration: requestsIllustration,
+    darkIllustration: requestsDarkIllustration,
+    title: 'Статусы ваших заявок и история бронирований',
+    badgeBg: '#fef5ea',
+    nav: 'requests',
+    requiresAuth: true,
+  },
+  {
+    id: 'feedback',
+    illustration: feedbackIllustration,
+    darkIllustration: feedbackDarkIllustration,
+    title: 'Задать вопрос команде и поддержке портала',
+    badgeBg: '#fdf1f5',
+    action: 'feedback',
+  },
 ]
 
-function onQuickAction(item) {
-  if (item.id === 'scanner') emit('open-scanner')
-  else if (item.id === 'student-code') emit('open-student-code')
-  else if (item.id === 'services') emit('navigate', 'services')
-  else emit('open-service', item.service)
+function handleNewPortalClick(item) {
+  if (locked(item)) {
+    emit('login')
+    return
+  }
+  if (item.nav) emit('navigate', item.nav)
+  else if (item.action) emit(item.action)
+  else if (item.service) openByLabel(item.service)
+}
+function openQuickLink(target) {
+  if (typeof target === 'string') {
+    const item = catalog.value.find((entry) => entry.label === target)
+    if (locked(item)) emit('login')
+    else choose(item)
+    return
+  }
+  if (locked(target)) {
+    emit('login')
+    return
+  }
+  if (target.nav) emit('navigate', target.nav)
+  else if (target.action) emit(target.action)
+  else if (target.service) openByLabel(target.service)
+}
+const historySuggestions = [
+  { text: 'мой универ', service: 'Карта' },
+  { text: 'расписание занятий', service: 'Расписание' },
+  { text: 'шаттлы кампуса', service: 'Шаттлы' },
+  { text: 'карта корпусов и общежитий', service: 'Карта' },
+  { text: 'бронирование коворкингов', service: 'Бронирование' },
+  { text: 'аренда инвентаря', service: 'Аренда' },
+  { text: 'мои заявки', nav: 'requests', requiresAuth: true },
+  { text: 'qr-пропуск студента', action: 'open-student-code', requiresAuth: true },
+]
+
+function clearQuery() {
+  query.value = ''
+  highlighted.value = -1
+  focusSearch()
+}
+
+function selectHistoryItem(item) {
+  if (locked(item)) {
+    emit('login')
+    return
+  }
+  query.value = item.text
+  expanded.value = false
+  if (item.nav) emit('navigate', item.nav)
+  else if (item.action) emit(item.action)
+  else if (item.service) openByLabel(item.service)
+}
+
+function focusSearch() {
+  field.value?.focus()
+  expanded.value = true
+}
+
+const activeCount = computed(() => {
+  return query.value.trim() ? results.value.length : historySuggestions.length
+})
+
+function moveHighlight(step) {
+  expanded.value = true
+  const count = activeCount.value
+  if (!count) return
+  highlighted.value = highlighted.value < 0 ? (step > 0 ? 0 : count - 1) : (highlighted.value + step + count) % count
+  nextTick(() => document.getElementById('home-result-' + highlighted.value)?.scrollIntoView({ block: 'nearest' }))
+}
+
+function submitSearch() {
+  if (!query.value.trim()) {
+    if (highlighted.value >= 0 && highlighted.value < historySuggestions.length) {
+      selectHistoryItem(historySuggestions[highlighted.value])
+    } else {
+      focusSearch()
+    }
+    return
+  }
+  if (results.value.length) choose(results.value[Math.max(highlighted.value, 0)])
+  else focusSearch()
+}
+function exitSearch(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) expanded.value = false
 }
 </script>
 
 <template>
-  <div class="desktop-home">
-    <header class="home-hello">
-      <div class="hello-copy">
-        <p class="hello-date">{{ caption }}</p>
-        <h1>{{ greeting(now) }}, {{ userName }}!</h1>
+  <div class="portal">
+    <header class="portal-bar">
+      <div class="portal-wrap bar-inner">
+        <a v-if="!authenticated" class="portal-brand" href="#portal-top" aria-label="FEFU One, на главную"><img :src="logo" alt="" />FEFU One</a>
+        <div class="bar-actions">
+          <a-select v-if="authenticated" v-model:value="role" class="header-role" :options="roleOptions" aria-label="Роль" />
+          <span v-if="authenticated" class="bar-divider"></span>
+          <button class="icon-control" aria-label="Помощь" @click="emit('feedback')"><QuestionCircleOutlined /></button>
+          <NotificationsPopover v-if="authenticated" outlined @open-request="(id) => emit('open-request', id)"
+            @open-schedule="openByLabel('Расписание')" @open-all="emit('navigate', 'notifications')" />
+          <button v-else class="icon-control" disabled aria-label="Уведомления доступны после входа"><BellOutlined /></button>
+          <span class="bar-divider"></span>
+          <ProfileMenu v-if="authenticated" @profile="emit('navigate', 'profile')" @feedback="emit('feedback')" @logout="emit('logout')" />
+          <button v-else class="login-control" @click="emit('login')">Войти</button>
+        </div>
       </div>
-      <CampusWidget :now="now" @open-service="(service) => emit('open-service', service)" />
     </header>
 
-    <GuestWidget v-if="!authenticated" @login="emit('login')" />
-
-    <QuickActions :items="quickActions" :authenticated="authenticated" @select="onQuickAction" />
-
-    <template v-if="authenticated">
-      <AttentionWidget v-if="attention.length" :items="attention" @action="(item) => emit('open-request', item.action.id)" />
-
-      <ActiveBookingsWidget
-        v-if="highlights.length"
-        :items="highlights"
-        :now="now"
-        @open-request="(id) => emit('open-request', id)"
-        @open-all="emit('navigate', 'requests')"
-      />
-
-      <RequestsWidget
-        :requests="requests"
-        @open-request="(id) => emit('open-request', id)"
-        @open-all="emit('navigate', 'requests')"
-      />
-
-      <TodayWidget
-        :feed="feed"
-        :now="now"
-        @open-request="(id) => emit('open-request', id)"
-        @open-service="(service) => emit('open-service', service)"
-      />
-    </template>
-
-    <template v-else>
-      <div class="pair">
-        <WidgetCard
-          title="Ближайшие 3 дня"
-          title-id="widget-today"
-          locked
-          locked-text="Брони, сроки возврата и мероприятия на ближайшие дни — в одной ленте."
-          @login="emit('login')"
-        />
-        <WidgetCard
-          title="Мои заявки"
-          title-id="widget-requests"
-          locked
-          locked-text="Статусы заявок на оборудование, ТМЦ и мероприятия — так же, как в мобильной версии."
-          @login="emit('login')"
-        />
+    <div class="portal-content-scroll">
+    <div id="portal-top" class="portal-wrap portal-main">
+      <div class="portal-weather" aria-label="Погода в кампусе">
+        <time class="portal-today"><span>{{ campusDate }}</span></time>
+        <img :src="cloudIcon" alt="" /><b>{{ weather.temperature }}°</b>
+        <span>Ощущается &nbsp;{{ weather.feelsLike }}°</span><span>Ветер &nbsp;{{ weather.wind }} м/с</span>
       </div>
-    </template>
+      <section class="portal-hero-dns" aria-label="Поиск и сервисы кампуса">
+        <div class="hero-services-row">
+          <button
+            v-for="item in heroServices"
+            :key="item.label"
+            class="hero-service-btn"
+            :aria-label="locked(item) ? `Сервис «${item.label}» (доступен после входа)` : `Открыть сервис «${item.label}»`"
+            @click="handleServiceClick(item)"
+          >
+            <div class="hero-service-icon-wrap">
+              <img class="hero-service-icon" :class="{ 'is-schedule': heroIcons[item.label] === schedule3d }" :src="heroIcons[item.label]" alt="" aria-hidden="true" />
+            </div>
+            <span class="hero-service-name">{{ item.label }}</span>
+          </button>
+        </div>
 
+        <div class="hero-search-area" @focusout="exitSearch" @keydown.esc="expanded = false">
+          <div class="hero-search-box" :class="{ 'is-expanded': expanded }">
+            <form role="search" class="hero-search-input-row" @submit.prevent="submitSearch">
+              <input
+                ref="field"
+                v-model="query"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="home-results"
+                :aria-expanded="expanded"
+                :aria-activedescendant="expanded && highlighted >= 0 ? 'home-result-' + highlighted : undefined"
+                aria-label="Поиск по сайту"
+                placeholder="Поиск по сервису"
+                autocomplete="off"
+                @focus="expanded = true"
+                @click="expanded = true"
+                @input="expanded = true"
+                @keydown.down.prevent="moveHighlight(1)"
+                @keydown.up.prevent="moveHighlight(-1)"
+              />
+
+              <div class="hero-search-tools">
+                <button
+                  v-if="query"
+                  type="button"
+                  class="search-tool-btn"
+                  aria-label="Очистить"
+                  title="Очистить"
+                  @click.stop="clearQuery"
+                >
+                  <CloseOutlined />
+                </button>
+
+                <a-button type="primary" html-type="submit" class="hero-search-btn" aria-label="Найти">
+                  <template #icon><SearchOutlined aria-hidden="true" /></template>
+                </a-button>
+              </div>
+            </form>
+
+            <Transition name="search-dropdown">
+              <div v-show="expanded" class="hero-search-dropdown" :inert="!expanded">
+                <div class="search-dropdown-divider"></div>
+
+                <div v-if="!query.trim()" id="home-results" role="listbox" aria-label="История и рекомендации" class="search-suggestions-list">
+                  <button
+                    v-for="(item, index) in historySuggestions"
+                    :id="'home-result-' + index"
+                    :key="item.text"
+                    role="option"
+                    :aria-selected="highlighted === index"
+                    class="search-suggestion-item is-history"
+                    tabindex="-1"
+                    @mousedown.prevent
+                    @click="selectHistoryItem(item)"
+                  >
+                    <span class="suggestion-icon"><HistoryOutlined /></span>
+                    <span class="suggestion-text">{{ item.text }}</span>
+                    <LockOutlined v-if="locked(item)" class="suggestion-lock" aria-label="Доступно после входа" />
+                  </button>
+                </div>
+
+                <div v-else id="home-results" role="listbox" aria-label="Подходящие сервисы" class="search-suggestions-list">
+                  <button
+                    v-for="(item, index) in results"
+                    :id="'home-result-' + index"
+                    :key="item.label"
+                    role="option"
+                    :aria-selected="highlighted === index"
+                    class="search-suggestion-item"
+                    tabindex="-1"
+                    @mousedown.prevent
+                    @click="choose(item)"
+                  >
+                    <span class="suggestion-icon"><SearchOutlined /></span>
+                    <span class="suggestion-copy">
+                      <strong>{{ item.label }}</strong>
+                      <small>{{ locked(item) ? 'Доступно после входа' : item.description }}</small>
+                    </span>
+                    <span class="suggestion-status">
+                      <LockOutlined v-if="locked(item) && (item.nav || item.action)" />
+                      <RightOutlined v-else />
+                    </span>
+                  </button>
+
+                  <p v-if="!results.length" class="search-no-results" role="status">Ничего не найдено. Попробуйте другое название.</p>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
+        <div class="hero-categories-row" aria-label="Быстрые переходы">
+          <a-button
+            v-for="link in quickLinks"
+            :key="link.label"
+            class="hero-category-link"
+            type="link"
+            @click="openQuickLink(link)"
+          >
+            {{ link.label }}
+          </a-button>
+        </div>
+      </section>
+
+      <slot name="activities" />
+
+      <section class="portal-section" aria-labelledby="new-portal-heading">
+        <div class="portal-section-head">
+          <h2 id="new-portal-heading">Обновления</h2>
+          <div class="new-portal-arrows">
+            <button
+              class="new-arrow-btn"
+              :disabled="!canScrollPrev"
+              aria-label="Назад"
+              @click="scrollNewTrack(-1)"
+            >
+              <LeftOutlined />
+            </button>
+            <button
+              class="new-arrow-btn"
+              :disabled="!canScrollNext"
+              aria-label="Вперёд"
+              @click="scrollNewTrack(1)"
+            >
+              <RightOutlined />
+            </button>
+          </div>
+        </div>
+
+        <div
+          ref="newTrack"
+          class="new-portal-track portal-carousel-track"
+          :class="{ 'fade-start': canScrollPrev, 'fade-end': canScrollNext }"
+          @scroll.passive="updateScrollState"
+        >
+          <button
+            v-for="item in newPortalItems"
+            :key="item.id"
+            class="new-portal-card"
+            :aria-label="locked(item) ? `${item.title} (доступно после входа)` : item.title"
+            @click="handleNewPortalClick(item)"
+          >
+            <div class="new-card-media" :style="{ backgroundColor: isDark ? darkCoverColors[item.id] : item.badgeBg }">
+              <img :src="isDark ? item.darkIllustration : item.illustration" class="new-card-illustration" alt="" />
+            </div>
+            <span class="new-card-title">{{ item.title }}</span>
+          </button>
+        </div>
+      </section>
+      <section class="portal-section useful-section" aria-labelledby="useful-heading">
+        <div class="portal-section-head"><h2 id="useful-heading">Полезные сервисы</h2></div>
+        <div class="useful-grid">
+          <a-card class="useful-agenda" role="region" aria-labelledby="home-schedule-heading">
+            <template #title><h3 id="home-schedule-heading">Расписание занятий</h3></template>
+            <template #extra>
+              <button type="button" class="useful-panel-more" aria-label="Открыть расписание" @click="openByLabel('Расписание')">
+                <RightOutlined />
+              </button>
+            </template>
+            <template v-if="authenticated">
+              <p class="agenda-lesson-date">
+                <time :datetime="lessonSchedule.date.toISOString().slice(0, 10)">{{ lessonDateFormat.format(lessonSchedule.date) }}</time>
+              </p>
+              <ul class="agenda-list">
+                <li v-for="lesson in lessonSchedule.lessons" :key="lesson.start" class="agenda-row">
+                  <strong>{{ lesson.title }}</strong>
+                  <span class="agenda-row-meta"><time :datetime="lesson.start">{{ lesson.start }}</time>–<time :datetime="lesson.end">{{ lesson.end }}</time></span>
+                </li>
+              </ul>
+            </template>
+            <p v-else class="agenda-message">Войдите, чтобы посмотреть расписание занятий.</p>
+          </a-card>
+          <a-card class="useful-agenda" role="region" aria-labelledby="home-requests-heading">
+            <template #title><h3 id="home-requests-heading">Мои заявки</h3></template>
+            <template #extra>
+              <button type="button" class="useful-panel-more" aria-label="Открыть мои заявки" @click="choose(updates[1])">
+                <RightOutlined />
+              </button>
+            </template>
+            <div v-if="myRequests.length" class="agenda-scroll-frame">
+              <div ref="requestViewport" class="agenda-content-scroll"
+                :class="{ 'fade-top': hasRequestsAbove, 'fade-bottom': hasRequestsBelow }"
+                @scroll.passive="onRequestScroll">
+                <ul ref="requestList" class="agenda-list">
+                  <li v-for="item in myRequests" :key="item.id">
+                    <button type="button" class="agenda-row" @click="emit('open-request', item.id)">
+                      <strong>{{ item.title }}</strong>
+                      <span class="agenda-row-meta">
+                        <time :datetime="item.startsAt">{{ requestDateFormat.format(new Date(item.startsAt)) }}</time>
+                        <template v-if="requestStatuses[item.status]"> · {{ requestStatuses[item.status].label }}</template>
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <span aria-hidden="true" class="agenda-scroll-thumb"
+                :class="{ visible: scrollingRequests }"
+                :style="{ height: requestThumbHeight + 'px', transform: 'translateY(' + requestThumbOffset + 'px)' }" />
+            </div>
+            <p v-else class="agenda-message">{{ authenticated ? 'У вас пока нет заявок.' : 'Войдите, чтобы увидеть свои заявки.' }}</p>
+          </a-card>
+          <div class="useful-tiles" aria-label="Другие сервисы">
+            <button v-for="item in usefulServices" :key="item.label" class="useful-tile" @click="openQuickLink(item)">
+              <img class="useful-tile-icon" :src="isDark ? item.darkIcon : item.icon" alt="" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+      <footer class="portal-footer" aria-label="О приложении и обратная связь">
+        <section class="footer-feedback" aria-labelledby="footer-feedback-heading">
+          <p>Задайте вопрос или поделитесь предложениями по улучшению.</p>
+          <div class="footer-feedback-heading">
+            <h2 id="footer-feedback-heading"><a href="mailto:support_one@dvfu.ru">support_one@dvfu.ru</a></h2>
+            <a-button type="link" class="footer-feedback-link" @click="emit('feedback')">Открыть обратную связь</a-button>
+          </div>
+        </section>
+        <section class="footer-download" aria-label="Скачать приложение">
+          <div class="store-grid">
+            <div class="store-badge" aria-label="Загрузите в App Store">
+              <svg class="store-logo apple-logo" viewBox="0 0 24 28" aria-hidden="true"><path fill="currentColor" d="M19.9 14.8c0-3.5 2.9-5.2 3-5.3-1.6-2.4-4.2-2.7-5.1-2.7-2.2-.2-4.3 1.3-5.4 1.3s-2.8-1.3-4.6-1.3c-2.4 0-4.7 1.4-5.9 3.6-2.5 4.3-.6 10.7 1.8 14.2 1.2 1.7 2.6 3.5 4.4 3.4 1.8-.1 2.5-1.1 4.7-1.1s2.8 1.1 4.7 1.1c2 0 3.2-1.7 4.3-3.4 1.4-1.9 2-3.8 2-3.9-.1 0-3.9-1.5-3.9-5.9zM16.4 4.5c1-1.2 1.7-2.9 1.5-4.5-1.5.1-3.3 1-4.3 2.2-.9 1-1.8 2.7-1.6 4.4 1.6.1 3.3-.8 4.4-2.1z"/></svg>
+              <span><small>Загрузите в</small><strong>App Store</strong></span>
+            </div>
+            <div class="store-badge" aria-label="Доступно в Google Play">
+              <svg class="store-logo" viewBox="0 0 28 32" aria-hidden="true"><path fill="#36c5f0" d="M1 1 16 16 1 31z"/><path fill="#50d087" d="M1 1 20 12 16 16z"/><path fill="#ffcf42" d="m20 12 7 4-7 4-4-4z"/><path fill="#f46a5d" d="M1 31 16 16l4 4z"/></svg>
+              <span><small>ДОСТУПНО В</small><strong>Google Play</strong></span>
+            </div>
+            <div class="store-badge" aria-label="Доступно в RuStore">
+              <span class="store-logo rustore-logo"><span>▥</span></span>
+              <span><small>Доступно в</small><strong>RuStore</strong></span>
+            </div>
+          </div>
+        </section>
+      </footer>
+    </div>
+    </div>
+    <DesktopServiceDialog :service="serviceDetails" :now="now" :authenticated="authenticated" @close="serviceDetails = null"
+      @login="serviceDetails = null; emit('login')" @open-request="(id) => emit('open-request', id)" />
   </div>
 </template>
 
-<style scoped>
-.desktop-home { display: flex; padding-top: 24px; flex-direction: column; gap: 20px; }
-.home-hello { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 24px; }
-.hello-date { margin: 0 0 2px; color: rgba(0, 0, 0, .55); font-size: 14px; line-height: 20px; }
-.hello-date::first-letter { text-transform: uppercase; }
-.home-hello h1 { margin: 0; color: #101828; font-size: 28px; font-weight: 700; line-height: 36px; }
-
-/* Пара карточек: одинаковая высота за счёт stretch; до 1280px — одна колонка. */
-.pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: stretch; }
-@media (min-width: 1280px) {
-  .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pair > .wide { grid-column: 1 / -1; }
-}
-</style>
+<style scoped src="./desktop-portal.css"></style>

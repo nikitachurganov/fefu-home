@@ -5,6 +5,7 @@ export const roleOptions = [
   { value: 'user', label: 'Пользователь' },
   { value: 'teacher', label: 'Преподаватель' },
   { value: 'staff', label: 'Сотрудник' },
+  { value: 'system_admin', label: 'Администратор системы' },
 ]
 
 export const role = ref('user')

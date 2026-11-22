@@ -43,7 +43,12 @@ const props = defineProps({
   // Заявка, которую нужно сразу открыть (переход из уведомления).
   focusRequestId: { type: String, default: null },
 })
-const emit = defineEmits(['login', 'focused'])
+const emit = defineEmits(['login', 'focused', 'closed'])
+
+function closeSelected() {
+  selectedId.value = null
+  emit('closed')
+}
 
 const selectedSource = ref('events')
 const selectedFilter = ref('all')
@@ -151,7 +156,7 @@ function confirmCancel() {
   if (!request) return
   const index = requests.value.findIndex((item) => item.id === request.id)
   requests.value[index] = cancelRequest(request)
-  selectedId.value = null
+  closeSelected()
   message.success(`Заявка №${request.id} отменена и перенесена в архив`)
 }
 </script>
@@ -253,7 +258,7 @@ function confirmCancel() {
       :footer="null"
       :width="378"
       centered
-      @cancel="selectedId = null"
+      @cancel="closeSelected"
     >
       <div v-if="selectedRequest" class="request-details">
         <img v-if="selectedRequest.image" class="request-detail-photo" :src="selectedRequest.image" :alt="selectedRequest.title" />

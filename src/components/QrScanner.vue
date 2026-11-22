@@ -4,6 +4,7 @@ import { BrowserQRCodeReader } from '@zxing/browser'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { codeBox, coverMap, cropRect, toScreen } from '../composables/qrGeometry'
+import { cameraErrorMessage } from '../composables/cameraErrors'
 
 // Сканер QR-кода: камера на весь экран. Только читает код и отдаёт текст через detect.
 // Читается только то, что внутри рамки: при нескольких кодах откроется тот, на который наведена рамка.
@@ -168,7 +169,7 @@ onMounted(async () => {
   closeButton.value?.focus()
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    fail('Камера недоступна в этом браузере или на небезопасном соединении (нужен HTTPS).')
+    fail('Доступ к камере не получен. Проверьте поддержку камеры в браузере и защищённое соединение.')
     return
   }
   try {
@@ -186,8 +187,9 @@ onMounted(async () => {
     video.value.srcObject = stream
     await video.value.play()
     tick()
-  } catch {
-    fail('Не удалось получить доступ к камере. Разрешите доступ в настройках браузера.')
+  } catch (error) {
+    stream?.getTracks().forEach((item) => item.stop())
+    if (!unmounted) fail(cameraErrorMessage(error))
   }
 })
 
@@ -269,6 +271,17 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #000;
   transform: translateX(-50%);
+}
+@media (min-width: 1024px) {
+  .qr-scanner {
+    top: 50%;
+    bottom: auto;
+    width: min(560px, calc(100vw - 48px));
+    height: min(680px, calc(100dvh - 48px));
+    border-radius: 16px;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55);
+    transform: translate(-50%, -50%);
+  }
 }
 .qr-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .qr-top {

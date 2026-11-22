@@ -22,7 +22,6 @@ import ClassSessionView from './ClassSessionView.vue'
 import ClassQrDisplay from './ClassQrDisplay.vue'
 import ClassStartCard from './ClassStartCard.vue'
 import RoomCardOverlay from './RoomCardOverlay.vue'
-import { useMediaQuery } from '../../composables/useMediaQuery'
 import {
   activeLessons,
   endClass,
@@ -62,17 +61,15 @@ import { isStaff, isTeacher, role } from '../../data/userStore'
 //   camera → request                — сотрудник: код заявки на рабочее место или чекаута;
 //   camera → session (инвентаризация) — сотрудник в режиме «Инвентаризация»: код здания или помещения задаёт область.
 // У сотрудника сверху переключатель режимов: «Сканер» (всё, что выше) и «Инвентаризация».
-// На ПК камеры нет, поэтому сканер начинается с ручного ввода; на телефоне — с камеры,
-// а если камера недоступна, переходит к ручному вводу с пояснением.
+// Сканер запускает камеру на ПК и телефоне; при ошибке доступен ручной ввод.
 const emit = defineEmits(['close', 'open-requests'])
 
 const showDemo = import.meta.env.DEV
 // Поверх сообщений сканера (z-index 1100) шторка «Отметить проблему» должна быть выше.
 const SHEET_Z = 1200
 
-const isDesktop = useMediaQuery('(min-width: 1024px)')
 const cameraError = ref('')
-const canUseCamera = computed(() => !isDesktop.value && !cameraError.value)
+const canUseCamera = computed(() => !cameraError.value)
 
 const step = ref(canUseCamera.value ? 'camera' : 'manual')
 // Режим сканера сотрудника: 'scan' — обычный, 'inventory' — инвентаризация. Пользователю доступен только обычный.
@@ -493,6 +490,11 @@ function rescan() {
   scanKey.value += 1
 }
 
+function retryCamera() {
+  cameraError.value = ''
+  restart()
+}
+
 function restart() {
   roomCard.value = null
   lesson.value = null
@@ -624,7 +626,7 @@ watch(isStaff, (staff) => { if (!staff) mode.value = 'scan' })
           :can-use-camera="canUseCamera"
           :inventory="inventoryMode"
           @submit="(input) => handle(normalizeManual(input), 'manual')"
-          @camera="restart"
+          @camera="retryCamera"
         />
         <DemoCodes v-if="showDemo" @pick="(text) => handle(text, 'camera')" />
       </template>
@@ -672,7 +674,7 @@ watch(isStaff, (staff) => { if (!staff) mode.value = 'scan' })
         :camera-error="cameraError"
         :can-use-camera="canUseCamera"
         @submit="(input) => handleSessionScan(normalizeManual(input), 'manual')"
-        @camera="scanning = true"
+        @camera="cameraError = ''; scanning = true"
       />
       <DemoCodes v-if="showDemo" :groups="unitGroups" @pick="(text) => handleSessionScan(text, 'camera')" />
     </InventoryView>
@@ -727,7 +729,7 @@ watch(isStaff, (staff) => { if (!staff) mode.value = 'scan' })
 </template>
 
 <style scoped>
-.manual-step { display: grid; gap: 16px; }
+.manual-step { display: grid; min-width: 0; gap: 16px; }
 /* Слот камеры: подтверждение сверху и карточка занятия снизу (макет «Вы отмечены»). */
 .lesson-toast { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; padding: 12px 16px; border-radius: 12px; background: #fff; color: #101828; font-size: 17px; line-height: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, .2); }
 .lesson-toast :deep(.anticon) { color: #52c41a; font-size: 20px; }

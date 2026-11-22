@@ -2,10 +2,10 @@
 // target ведёт на заявку (id из requests.js) или на раздел «Расписание».
 export const mockNotifications = [
   { id: 'n10', type: 'return_overdue', severity: 'danger', createdAt: '2026-10-18T15:20:00+10:00', readAt: null,
-    title: 'Утюг не возвращён', body: 'Срок возврата истёк в 14:00. Верните утюг в комнату 101, общежитие №7.',
+    title: 'Утюг не возвращён', body: 'Срок возврата истёк в 14:00. Верните утюг в кабинет 101, общежитие №7.',
     target: { kind: 'request', id: '1001' } },
   { id: 'n9', type: 'booking_reminder', severity: 'info', createdAt: '2026-10-18T11:00:00+10:00', readAt: '2026-10-18T11:05:00+10:00',
-    title: 'Бронь через час', body: 'Утюг, общежитие №7 · Комната 101, 12:00 — 14:00.',
+    title: 'Бронь через час', body: 'Утюг, общежитие №7 · Кабинет 101, 12:00 — 14:00.',
     target: { kind: 'request', id: '1001' } },
   { id: 'n8', type: 'class_started', severity: 'info', createdAt: '2026-10-18T10:00:00+10:00', readAt: null,
     title: 'Пара началась', body: 'Математический анализ, Корпус D · Ауд. 210.',
@@ -26,6 +26,6 @@ export const mockNotifications = [
     title: 'Заявка №3005 отклонена', body: 'Проектор уже забронирован другим пользователем на это время.',
     target: { kind: 'request', id: '3005' } },
   { id: 'n2', type: 'return_soon', severity: 'warning', createdAt: '2026-10-12T13:30:00+10:00', readAt: '2026-10-12T13:35:00+10:00',
-    title: 'Скоро возвращать', body: 'Верните 3D-принтер до 14:00 в Студенческий центр, комната 12.',
+    title: 'Скоро возвращать', body: 'Верните 3D-принтер до 14:00 в кабинет 12 Студенческого центра.',
     target: { kind: 'request', id: '3006' } },
 ]

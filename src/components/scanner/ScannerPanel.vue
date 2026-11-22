@@ -59,6 +59,7 @@ const isDesktop = useMediaQuery('(min-width: 1024px)')
 .scanner-page-title { margin: 0; color: #101828; font-size: 20px; font-weight: 700; line-height: 28px; }
 .scanner-page-subtitle { margin: 0; color: rgba(0, 0, 0, .45); font-size: 14px; line-height: 20px; }
 .panel-subtitle { margin: 0 0 12px; color: rgba(0, 0, 0, .45); font-size: 14px; line-height: 20px; }
+.panel-body { min-width: 0; max-height: min(65dvh, 620px); overflow-y: auto; overflow-x: hidden; }
 .panel-footer { margin-top: 16px; }
 .scanner-page-footer { display: grid; flex-shrink: 0; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #fff; box-shadow: 0 -1px 0 #f0f0f0; }
 .scanner-page-footer :deep(.ant-btn) { height: 48px; border-radius: 8px; }

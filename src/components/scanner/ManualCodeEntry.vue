@@ -75,7 +75,7 @@ const error = () => {
 
     <div class="manual-actions">
       <a-button type="primary" size="large" block html-type="submit">Найти</a-button>
-      <a-button v-if="canUseCamera" size="large" block @click="emit('camera')">Сканировать камерой</a-button>
+      <a-button v-if="canUseCamera || cameraError" size="large" block @click="emit('camera')">{{ cameraError ? 'Попробовать снова' : 'Сканировать камерой' }}</a-button>
     </div>
   </form>
 </template>
@@ -83,7 +83,7 @@ const error = () => {
 <style scoped>
 .manual-entry { display: grid; gap: 16px; }
 .field { display: grid; gap: 4px; }
-.field-label { color: rgba(0, 0, 0, .88); font-size: 14px; line-height: 20px; }
+.field-label { color: var(--ant-color-text, rgba(0, 0, 0, .88)); font-size: 14px; line-height: 20px; }
 .field-error { margin: 0; color: #cf1322; font-size: 13px; line-height: 18px; }
 /* 16px, чтобы iOS не увеличивал страницу при фокусе на поле. */
 .manual-input { font-size: 16px; }

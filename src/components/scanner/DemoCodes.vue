@@ -36,10 +36,11 @@ const current = computed({
 </template>
 
 <style scoped>
-.demo-codes { display: grid; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px dashed #d9d9d9; }
+.demo-codes { display: grid; min-width: 0; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px dashed #d9d9d9; }
 .demo-codes h3 { margin: 0; color: rgba(0, 0, 0, .45); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .demo-hint { margin: 0; color: rgba(0, 0, 0, .65); font-size: 13px; line-height: 18px; }
-.demo-group { display: grid; gap: 4px; }
+.demo-codes :deep(.ant-segmented) { min-width: 0; max-width: 100%; overflow-x: auto; }
+.demo-group { display: grid; min-width: 0; gap: 4px; }
 .demo-group h4 { margin: 4px 0 0; color: rgba(0, 0, 0, .65); font-size: 13px; font-weight: 600; }
 .demo-code { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid #f0f0f0; border-radius: 8px; background: #fff; color: rgba(0, 0, 0, .88); font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }
 .demo-code:active { background: #f5f5f5; }

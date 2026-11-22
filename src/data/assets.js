@@ -36,11 +36,11 @@ export const assets = reactive([
   { id: 'RM-0901', type: 'room', title: 'Серверная', parentId: 'AS-0001', status: 'available', restricted: true },
 
   { id: 'AS-0002', type: 'asset', title: 'Студенческий центр', parentId: null, status: 'available' },
-  { id: 'RM-0012', type: 'room', title: 'Комната 12', parentId: 'AS-0002', status: 'available' },
+  { id: 'RM-0012', type: 'room', title: 'Кабинет 12', parentId: 'AS-0002', status: 'available' },
   { id: 'EQ-0201', type: 'equipment', title: '3D-принтер Prusa MK4', parentId: 'RM-0012', status: 'in-use', modelId: '3d-printer' },
 
   { id: 'AS-0007', type: 'asset', title: 'Общежитие №7', parentId: null, status: 'available' },
-  { id: 'RM-0101', type: 'room', title: 'Кладовая, комната 101', parentId: 'AS-0007', status: 'available' },
+  { id: 'RM-0101', type: 'room', title: 'Кладовая, кабинет 101', parentId: 'AS-0007', status: 'available' },
   { id: 'TM-0301', type: 'equipment', title: 'Утюг Philips', parentId: 'RM-0101', status: 'available', modelId: 'iron', tmc: true },
   { id: 'TM-0302', type: 'equipment', title: 'Утюг Philips', parentId: 'RM-0101', status: 'in-use', modelId: 'iron', tmc: true },
   { id: 'TM-0303', type: 'equipment', title: 'Пылесос Samsung', parentId: 'RM-0101', status: 'in-use', modelId: 'vacuum', tmc: true },

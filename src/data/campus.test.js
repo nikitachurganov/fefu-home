@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextDepartures, studentCode, studentId, userFullName, userRole } from './campus'
+import { formatWaitTime, nextDepartures, studentCode, studentId, userFullName, userRole } from './campus'
 
 describe('campus student data', () => {
   it('предоставляет данные студента и код', () => {
@@ -17,5 +17,13 @@ describe('campus student data', () => {
     expect(result).toHaveLength(2)
     expect(result[0].time).toBe('11:00')
     expect(result[0].inMinutes).toBe(30)
+  })
+
+  it('форматирует время ожидания с учётом часов и склонений', () => {
+    expect(formatWaitTime(1)).toBe('1 минуту')
+    expect(formatWaitTime(60)).toBe('1 час')
+    expect(formatWaitTime(85)).toBe('1 час 25 минут')
+    expect(formatWaitTime(122)).toBe('2 часа 2 минуты')
+    expect(formatWaitTime(300)).toBe('5 часов')
   })
 })
