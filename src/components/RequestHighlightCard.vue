@@ -54,6 +54,8 @@ function formatRoom(place) {
 function getSubtitle(item) {
   if (item.instructor) return item.instructor
   if (item.speaker) return item.speaker
+  // Номер заявки на ТМЦ и бронирование — reservations.id в бэкенде (целое число без префикса).
+  if (['tmc', 'equipment', 'workplace'].includes(item.source) && item.id) return `Заявка № ${item.id}`
   if (item.items?.[0]?.unitId) return `Инв. № ${item.items[0].unitId}`
   if (item.source === 'events') return 'Студенческое событие'
   if (item.source === 'equipment' || item.source === 'tmc') return item.place || 'Пункт выдачи'

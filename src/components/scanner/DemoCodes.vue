@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { demoCodeGroupsFor } from '../../data/demoCodes'
-import { role, roleOptions } from '../../data/userStore'
+import { role, roleLabel, roleOptions, roleProfile } from '../../data/userStore'
 
 // Список демо-кодов: в превью и на ПК нет камеры, а коды действий руками не введёшь.
 // Тап по строке действует как скан этого кода. По умолчанию показываем коды текущей роли;
@@ -9,8 +9,7 @@ import { role, roleOptions } from '../../data/userStore'
 const props = defineProps({ groups: { type: Array, default: null } })
 const emit = defineEmits(['pick'])
 
-const shown = computed(() => props.groups ?? demoCodeGroupsFor(role.value))
-const roleLabel = computed(() => roleOptions.find((option) => option.value === role.value)?.label)
+const shown = computed(() => props.groups ?? demoCodeGroupsFor(roleProfile.value))
 // Роль можно сменить не выходя из сканера: флоу ТМЦ (выдача и приёмка) открывается только у сотрудника.
 const current = computed({
   get: () => role.value,
@@ -22,8 +21,8 @@ const current = computed({
   <section class="demo-codes" aria-label="Демо-коды">
     <h3>Демо-коды (только dev){{ groups ? '' : ` · ${roleLabel}` }}</h3>
     <template v-if="!groups">
-      <a-segmented v-model:value="current" block :options="roleOptions" aria-label="Роль в демо-режиме" />
-      <p class="demo-hint">Показаны коды для роли «{{ roleLabel }}». Выдача и приёмка ТМЦ — в роли «Сотрудник»: коды заявки и возврата.</p>
+      <a-select v-model:value="current" :options="roleOptions" show-search option-filter-prop="label" aria-label="Роль в демо-режиме" />
+      <p class="demo-hint">Показаны коды для роли «{{ roleLabel }}». Выдача и приёмка ТМЦ — у кладовщика (например, «Сотрудник склада ТМЦ»): коды заявки и возврата.</p>
     </template>
     <div v-for="group in shown" :key="group.title" class="demo-group">
       <h4>{{ group.title }}</h4>
@@ -39,7 +38,7 @@ const current = computed({
 .demo-codes { display: grid; min-width: 0; gap: 8px; margin-top: 24px; padding-top: 16px; border-top: 1px dashed #d9d9d9; }
 .demo-codes h3 { margin: 0; color: rgba(0, 0, 0, .45); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .demo-hint { margin: 0; color: rgba(0, 0, 0, .65); font-size: 13px; line-height: 18px; }
-.demo-codes :deep(.ant-segmented) { min-width: 0; max-width: 100%; overflow-x: auto; }
+.demo-codes :deep(.ant-select) { width: 100%; }
 .demo-group { display: grid; min-width: 0; gap: 4px; }
 .demo-group h4 { margin: 4px 0 0; color: rgba(0, 0, 0, .65); font-size: 13px; font-weight: 600; }
 .demo-code { display: grid; gap: 2px; padding: 8px 12px; border: 1px solid #f0f0f0; border-radius: 8px; background: #fff; color: rgba(0, 0, 0, .88); font-size: 14px; line-height: 20px; text-align: left; cursor: pointer; }

@@ -3,8 +3,10 @@
   --muted: #666;
   --line: #e6e6e6;
   --blue: #2867ab;
+  --button-blue: #2867ab;
+  --button-blue-hover: #1f5a99;
   color: var(--ink);
-  background: #f3f3f3; height: 100%; min-height: 0; display: flex; flex-direction: column;
+  background: #f5f5f5; /* antd colorBgLayout (gray-3) */ height: 100%; min-height: 0; display: flex; flex-direction: column;
   font-family: inherit;
 }
 .portal button:not(.ant-btn-link) { color: inherit; font: inherit; cursor: pointer; }
@@ -214,9 +216,13 @@
   height: 42px;
   flex-shrink: 0;
   margin-left: 2px;
+  border-color: var(--button-blue);
+  background: var(--button-blue);
+  box-shadow: none;
   color: #fff;
   font-size: 17px;
 }
+.portal .hero-search-btn.ant-btn-primary:hover { border-color: var(--button-blue-hover); background: var(--button-blue-hover); color: #fff; }
 
 .hero-search-dropdown {
   position: absolute;
@@ -686,3 +692,67 @@ button.agenda-row { border-radius: 8px; }
   }
 }
 .suggestions button[aria-disabled=true] { color: #666; cursor: default; }
+
+/* Главная преподавателя: «Мои пары», «Требует внимания», плитки кабинета. */
+/* «Мои пары»: карточки как в расписании университета — цветная полоса со временем и аудиторией, ниже пара. */
+.pair-cards { display: grid; gap: 8px; margin: 0; padding: 8px 0; list-style: none; }
+.pair-card { overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--useful-surface, #fff); }
+.pair-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--button-blue); color: #fff; font-size: 13px; line-height: 18px; }
+.pair-card-head .anticon { margin-right: 4px; font-size: 12px; }
+.pair-card-body { display: grid; gap: 4px; padding: 10px 12px 12px; }
+.pair-card-title { color: var(--ink); font-size: 14px; font-weight: 600; line-height: 18px; }
+.pair-card.is-past .pair-card-head { background: var(--pair-past-head, #f0f0f0); color: var(--pair-past-text, #595959); }
+/* Полоса-алерт статуса под шапкой: цвета как у a-alert (warning / error / info). */
+.pair-alert { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 6px 12px; color: var(--ink); font-size: 13px; line-height: 18px; }
+.pair-alert.tone-warning { background: #fffbe6; }
+.pair-alert.tone-error { background: #fff2f0; }
+.pair-alert.tone-processing { background: #e6f4ff; }
+.portal .pair-alert .pair-alert-action { height: auto; padding: 0; font-weight: 400; }
+.portal .pair-alert.tone-warning .pair-alert-action { color: #d46b08; }
+.portal .pair-alert.tone-error .pair-alert-action { color: #cf1322; }
+.pair-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.portal .pair-actions .pair-problem { padding-inline: 0; color: var(--blue); }
+/* «Требует внимания»: группы по типу задачи, без разделителей — группы отделены отступом. */
+.attention-group:first-child .attention-group-title { padding-top: 0; }
+.attention-group-title { margin: 0; padding: 12px 0 4px; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 18px; }
+.attention-group .agenda-list { display: grid; gap: 4px; }
+.attention-group .agenda-list > li + li { border-top: 0; }
+/* Строка — серая плашка на белой карточке: antd gray-3, при наведении gray-4. */
+.attention-group .agenda-row { gap: 0; padding: 6px 10px; background: var(--attention-row, #f5f5f5); }
+.attention-group .agenda-row:enabled:hover { background: var(--attention-row-hover, #f0f0f0); }
+.attention-ok { display: flex; align-items: center; gap: 8px; }
+.attention-ok .anticon { color: #389e0d; }
+.useful-tile-glyph { display: grid; width: 40px; place-items: center; color: var(--blue); font-size: 30px; }
+
+/* Плашка пары преподавателя: за 15 минут до начала и во время пары.
+   Устроена как карточка «Текущих активностей» (MobileSessionSlider, desktop): статус, название, разделитель, место и время. */
+.lesson-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 20px 20px 16px;
+  border-radius: 12px;
+  background: var(--activity-surface, #fff);
+}
+.lesson-banner-copy { display: grid; gap: 8px; min-width: 0; }
+.lesson-banner-status { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 13px; line-height: 16px; }
+.lesson-banner-dot { width: 6px; height: 6px; flex: none; border-radius: 3px; background: #faad14; }
+.lesson-banner.is-live .lesson-banner-dot { background: #4f90da; }
+.lesson-banner h2 { margin: 0; color: var(--ink); font-size: 15px; font-weight: 700; line-height: 20px; }
+.lesson-banner-meta { color: var(--activity-secondary, rgba(18, 18, 18, .65)); font-size: 15px; line-height: 20px; }
+.lesson-banner-actions { display: flex; flex-wrap: wrap; align-self: start; justify-content: flex-end; gap: 8px; }
+.lesson-banner-divider { grid-column: 1 / -1; height: 1px; background: var(--activity-divider, #f0f0f0); }
+.lesson-banner-bottom { display: flex; grid-column: 1 / -1; justify-content: space-between; gap: 16px; color: var(--ink); font-size: 13px; line-height: 16px; }
+.lesson-banner-bottom > span { opacity: .6; }
+/* Кнопки в стиле портала (как «Войти» / «Регистрация»): фирменный синий, белый текст, без тени. */
+.portal .lesson-banner-actions .ant-btn { height: 44px; padding-inline: 20px; border-radius: 8px; box-shadow: none; font-size: 15px; line-height: 20px; }
+.portal .lesson-banner-actions .ant-btn-primary,
+.portal .pair-actions .ant-btn-primary { border-color: var(--button-blue); background: var(--button-blue); box-shadow: none; color: #fff; }
+.portal .lesson-banner-actions .ant-btn-primary:hover,
+.portal .pair-actions .ant-btn-primary:hover { border-color: var(--button-blue-hover); background: var(--button-blue-hover); color: #fff; }
+@media (max-width: 1100px) {
+  .lesson-banner { grid-template-columns: minmax(0, 1fr); }
+  .lesson-banner-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}

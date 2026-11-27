@@ -1,11 +1,17 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import {
-  BellOutlined, CloseOutlined,
+  BellOutlined, BookOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseOutlined, EnvironmentOutlined,
   FileTextOutlined, HistoryOutlined, LeftOutlined, LockOutlined, MessageOutlined,
-  QrcodeOutlined,
+  QrcodeOutlined, SolutionOutlined,
   QuestionCircleOutlined, RightOutlined, ScanOutlined, SearchOutlined,
 } from '@ant-design/icons-vue'
+import TeacherDialogs from './TeacherDialogs.vue'
+import {
+  isPairFinished, lessonBanner, lessonClock, lessonFeedback, markedCount, needsDelayReason, pairStatuses,
+  riskStudents, teacherPairs, unassignedStudents,
+} from '../data/teacherStore'
 import { weather } from '../data/campus'
 import ProfileMenu from './ProfileMenu.vue'
 import { isDark } from '../data/theme'
@@ -17,7 +23,7 @@ import bookingDark from '../assets/services/calendar-dark.svg'
 import rentalDark from '../assets/services/rent-dark.svg'
 import { requests } from '../data/requestStore'
 import { feedRequests, parts, requestStatuses } from '../data/requestModel'
-import { role, roleOptions } from '../data/userStore'
+import { isTeacher, role, roleOptions } from '../data/userStore'
 import NotificationsPopover from './NotificationsPopover.vue'
 import DesktopServiceDialog from './DesktopServiceDialog.vue'
 import passDarkIllustration from '../assets/portal/updates/pass-dark.png'
@@ -64,14 +70,19 @@ const heroIcons = {
   'Аренда': rental3d,
 }
 const heroServices = computed(() => Object.keys(heroIcons).map((label) => props.services.find((s) => s.label === label)).filter(Boolean))
-const quickLinks = [
+// Главная преподавателя (ROLES_SPEC.md §3.5, docs/useful-services-by-role.md): вместо пропуска — «Начать пару»,
+// в «Полезных сервисах» — «Занятия сегодня», «Требует внимания» и плитки кабинета.
+const teacherView = computed(() => props.authenticated && isTeacher.value)
+const quickLinks = computed(() => [
   { label: 'QR-сканер', action: 'open-scanner' },
-  { label: 'Пропуск', action: 'open-student-code', requiresAuth: true },
+  teacherView.value
+    ? { label: 'Начать пару', action: 'open-scanner' }
+    : { label: 'Пропуск', action: 'open-student-code', requiresAuth: true },
   { label: 'Мои заявки', nav: 'requests', requiresAuth: true },
   { label: 'Карта кампуса', service: 'Карта' },
   { label: 'Шаттлы', service: 'Шаттлы' },
   { label: 'Обратная связь', action: 'feedback' },
-]
+])
 const updates = [
   { label: 'QR-сканер', description: 'Паспорта объектов и отметка по коду', icon: ScanOutlined, action: 'open-scanner' },
   { label: 'Мои заявки', description: 'Брони, аренда и статусы заявок', icon: FileTextOutlined, nav: 'requests', requiresAuth: true },
@@ -171,6 +182,106 @@ const usefulServices = [
   { label: 'Бронирование', icon: bookingIcon, darkIcon: bookingDark, service: 'Бронирование' },
   { label: 'Аренда', icon: rentalIcon, darkIcon: rentalDark, service: 'Аренда' },
 ]
+
+// --- Преподаватель ---
+const teacherTiles = [
+  { label: 'Журналы', glyph: BookOutlined, cabinet: 'Журналы' },
+  { label: 'Кабинет преподавателя', glyph: SolutionOutlined, cabinet: 'Главная' },
+  { label: 'QR-сканер', glyph: ScanOutlined, action: 'open-scanner' },
+  { label: 'Бронирование', icon: bookingIcon, darkIcon: bookingDark, service: 'Бронирование' },
+  { label: 'Мои заявки', glyph: FileTextOutlined, nav: 'requests', requiresAuth: true },
+  { label: 'Аренда', icon: rentalIcon, darkIcon: rentalDark, service: 'Аренда' },
+]
+const teacherDialog = ref(null)
+const openTeacherDialog = (type, pairId) => { teacherDialog.value = { type, pairId } }
+// Кабинета преподавателя в прототипе нет (в сервисе он только на ПК, docs/useful-services-by-role.md §4).
+const openCabinet = (section) => message.info(`Кабинет преподавателя → ${section}: демо-раздел пока в разработке.`)
+const openTeacherTile = (item) => (item.cabinet ? openCabinet(item.cabinet) : openQuickLink(item))
+
+const plural = (n, [one, few, many]) => {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+// Время на демо-часах кампуса (см. teacherStore): от него зависят статусы пар и плашка.
+const teacherMinutes = computed(() => lessonClock(props.now))
+// Тег статуса в «Занятиях сегодня» — только когда он что-то сообщает: идёт, начата с опозданием, сорвана.
+// Не начатая и проведённая без проблем пара тега не получает.
+const pairStatus = (pair) => {
+  if (pair.status === 'not_started') return null
+  if (pair.status === 'started' && isPairFinished(pair, teacherMinutes.value)) return null
+  return pairStatuses[pair.status]
+}
+// Плашка пары: появляется за 15 минут до начала и держится до конца пары.
+// Верхняя строка — место и время пары; во время пары рядом метка «Идёт».
+const banner = computed(() => (teacherView.value ? lessonBanner(teacherPairs.value, teacherMinutes.value) : null))
+// Аудитория показана в полосе карточки, здесь — группа и вид занятия.
+const pairMeta = (pair) => `${pair.group} · ${pair.kind}`
+
+// Панель «Требует внимания»: строки собраны в группы по типу задачи (docs/useful-services-by-role.md, панель 2).
+// Группа показывается, только если в ней есть строки.
+const attentionGroups = computed(() => {
+  const groups = []
+  const late = teacherPairs.value.filter(needsDelayReason)
+  groups.push({
+    id: 'delay',
+    title: 'Укажите причину опоздания',
+    rows: late.map((pair) => ({
+      id: `delay-${pair.id}`,
+      title: pair.title,
+      detail: `${pair.start}–${pair.end}`,
+      run: () => openTeacherDialog('delay', pair.id),
+    })),
+  })
+  const editable = teacherPairs.value.filter((item) => isPairFinished(item, teacherMinutes.value) && item.editableUntil)
+  groups.push({
+    id: 'edit',
+    title: 'Правка отметок',
+    rows: editable.map((pair) => {
+      const left = pair.students.length - markedCount(pair)
+      return {
+        id: `edit-${pair.id}`,
+        title: pair.title,
+        detail: `${pair.start}–${pair.end} · до ${pair.editableUntil} · ${left ? `не отмечено: ${left}` : 'все отмечены'}`,
+        run: () => openTeacherDialog('journal', pair.id),
+      }
+    }),
+  })
+  const risk = riskStudents.value.length
+  const unassigned = unassignedStudents.value.length
+  groups.push({
+    id: 'students',
+    title: 'Студенты',
+    rows: [
+      risk && { id: 'risk', title: 'Студенты в зоне риска', detail: 'Посещаемость 50 % и ниже', run: () => openTeacherDialog('risk') },
+      unassigned && { id: 'subgroups', title: 'Студенты без подгруппы', run: () => openCabinet('Подгруппы') },
+    ].filter(Boolean),
+  })
+  const feedback = lessonFeedback.newCount
+  groups.push({
+    id: 'feedback',
+    title: 'Оценки занятий',
+    rows: feedback ? [{
+      id: 'feedback',
+      title: `${feedback} ${plural(feedback, ['новая оценка', 'новые оценки', 'новых оценок'])}`,
+      detail: `Понятность ${String(lessonFeedback.clear).replace('.', ',')} из 2, ниже остальных критериев`,
+      run: () => openCabinet('Обратная связь по занятиям'),
+    }] : [],
+  })
+  groups.push({
+    id: 'requests',
+    title: 'Заявки на модерации',
+    rows: myRequests.value.filter((item) => item.status === 'review').map((item) => ({
+      id: `request-${item.id}`,
+      title: item.title,
+      detail: requestDateFormat.format(new Date(item.startsAt)),
+      run: () => emit('open-request', item.id),
+    })),
+  })
+  return groups.filter((group) => group.rows.length)
+})
 const features = computed(() => featureLabels.map((feature) => ({
   ...props.services.find((item) => item.label === feature.label), ...feature,
 })))
@@ -304,6 +415,9 @@ const newPortalItems = [
   },
 ]
 
+// QR-пропуск — студенческая карточка, преподавателю она не нужна.
+const visiblePortalItems = computed(() => (teacherView.value ? newPortalItems.filter((item) => item.id !== 'pass') : newPortalItems))
+
 function handleNewPortalClick(item) {
   if (locked(item)) {
     emit('login')
@@ -397,7 +511,7 @@ function exitSearch(event) {
       <div class="portal-wrap bar-inner">
         <a v-if="!authenticated" class="portal-brand" href="#portal-top" aria-label="FEFU One, на главную"><img :src="logo" alt="" />FEFU One</a>
         <div class="bar-actions">
-          <a-select v-if="authenticated" v-model:value="role" class="header-role" :options="roleOptions" aria-label="Роль" />
+          <a-select v-if="authenticated" v-model:value="role" class="header-role" :options="roleOptions" show-search option-filter-prop="label" :popup-match-select-width="320" aria-label="Роль" />
           <span v-if="authenticated" class="bar-divider"></span>
           <button class="icon-control" aria-label="Помощь" @click="emit('feedback')"><QuestionCircleOutlined /></button>
           <NotificationsPopover v-if="authenticated" outlined @open-request="(id) => emit('open-request', id)"
@@ -537,6 +651,31 @@ function exitSearch(event) {
         </div>
       </section>
 
+      <section v-if="banner" class="lesson-banner" :class="`is-${banner.phase}`" aria-labelledby="lesson-banner-title" aria-live="polite">
+        <div class="lesson-banner-copy">
+          <span class="lesson-banner-status">
+            <span class="lesson-banner-dot" aria-hidden="true"></span>
+            {{ banner.phase === 'live' ? 'Пара идёт' : 'Скоро начало' }}
+          </span>
+          <h2 id="lesson-banner-title">{{ banner.pair.title }}</h2>
+          <span class="lesson-banner-meta">{{ banner.pair.group }} · {{ banner.pair.kind }}</span>
+        </div>
+        <div class="lesson-banner-actions">
+          <!-- До начала пары — «Начать пару», во время пары — только «Отметить студентов» -->
+          <a-button v-if="banner.phase === 'live'" type="primary" size="large" @click="openTeacherDialog('journal', banner.pair.id)">
+            Отметить студентов
+          </a-button>
+          <a-button v-else-if="banner.pair.status === 'not_started'" type="primary" size="large" @click="emit('open-scanner')">
+            Начать пару
+          </a-button>
+        </div>
+        <div class="lesson-banner-divider" aria-hidden="true"></div>
+        <div class="lesson-banner-bottom">
+          <span>{{ banner.pair.building }}, {{ banner.pair.room }}</span>
+          <span><time :datetime="banner.pair.start">{{ banner.pair.start }}</time> - <time :datetime="banner.pair.end">{{ banner.pair.end }}</time></span>
+        </div>
+      </section>
+
       <slot name="activities" />
 
       <section class="portal-section" aria-labelledby="new-portal-heading">
@@ -569,7 +708,7 @@ function exitSearch(event) {
           @scroll.passive="updateScrollState"
         >
           <button
-            v-for="item in newPortalItems"
+            v-for="item in visiblePortalItems"
             :key="item.id"
             class="new-portal-card"
             :aria-label="locked(item) ? `${item.title} (доступно после входа)` : item.title"
@@ -584,7 +723,68 @@ function exitSearch(event) {
       </section>
       <section class="portal-section useful-section" aria-labelledby="useful-heading">
         <div class="portal-section-head"><h2 id="useful-heading">Полезные сервисы</h2></div>
-        <div class="useful-grid">
+        <div v-if="teacherView" class="useful-grid teacher-grid">
+          <a-card class="useful-agenda" role="region" aria-labelledby="home-pairs-heading">
+            <template #title><h3 id="home-pairs-heading">Занятия сегодня</h3></template>
+            <template #extra>
+              <button type="button" class="useful-panel-more" aria-label="Открыть расписание в кабинете преподавателя" @click="openCabinet('Расписание')">
+                <RightOutlined />
+              </button>
+            </template>
+            <!-- Карточка пары повторяет расписание университета: полоса со временем и аудиторией, ниже пара -->
+            <ul class="pair-cards">
+              <li v-for="pair in teacherPairs" :key="pair.id" class="pair-card" :class="{ 'is-past': isPairFinished(pair, teacherMinutes) }">
+                <div class="pair-card-head">
+                  <span><ClockCircleOutlined aria-hidden="true" /> <time :datetime="pair.start">{{ pair.start }}</time>–<time :datetime="pair.end">{{ pair.end }}</time></span>
+                  <span><EnvironmentOutlined aria-hidden="true" /> {{ pair.room }}</span>
+                </div>
+                <!-- Статус пары — полоса-алерт под шапкой, действие по нему справа -->
+                <div v-if="pairStatus(pair)" class="pair-alert" :class="`tone-${pairStatus(pair).color}`">
+                  <span>{{ pairStatus(pair).label }}</span>
+                  <a-button v-if="needsDelayReason(pair)" type="link" size="small" class="pair-alert-action" @click="openTeacherDialog('delay', pair.id)">Указать причину</a-button>
+                </div>
+                <div class="pair-card-body">
+                  <strong class="pair-card-title">{{ pair.title }}</strong>
+                  <span class="agenda-row-meta">{{ pairMeta(pair) }}</span>
+                <span class="pair-actions">
+                  <a-button v-if="pair.status === 'not_started'" type="primary" size="small" @click="emit('open-scanner')">
+                    Начать пару
+                  </a-button>
+                  <a-button v-else size="small" @click="openTeacherDialog('journal', pair.id)">
+                    Отметки
+                  </a-button>
+                  <a-button type="link" size="small" class="pair-problem" @click="openTeacherDialog('problem', pair.id)">Проблема в аудитории</a-button>
+                </span>
+                </div>
+              </li>
+            </ul>
+          </a-card>
+          <a-card class="useful-agenda" role="region" aria-labelledby="home-attention-heading">
+            <template #title><h3 id="home-attention-heading">Требует внимания</h3></template>
+            <div v-if="attentionGroups.length" class="attention-groups">
+              <section v-for="group in attentionGroups" :key="group.id" class="attention-group" :aria-labelledby="`attention-${group.id}`">
+                <h4 :id="`attention-${group.id}`" class="attention-group-title">{{ group.title }}</h4>
+                <ul class="agenda-list">
+                  <li v-for="item in group.rows" :key="item.id">
+                    <button type="button" class="agenda-row" @click="item.run">
+                      <strong>{{ item.title }}</strong>
+                      <span v-if="item.detail" class="agenda-row-meta">{{ item.detail }}</span>
+                    </button>
+                  </li>
+                </ul>
+              </section>
+            </div>
+            <p v-else class="agenda-message attention-ok"><CheckCircleOutlined /> Всё в порядке</p>
+          </a-card>
+          <div class="useful-tiles" aria-label="Сервисы преподавателя">
+            <button v-for="item in teacherTiles" :key="item.label" class="useful-tile" @click="openTeacherTile(item)">
+              <span v-if="item.glyph" class="useful-tile-icon useful-tile-glyph" aria-hidden="true"><component :is="item.glyph" /></span>
+              <img v-else class="useful-tile-icon" :src="isDark ? item.darkIcon : item.icon" alt="" aria-hidden="true" />
+              <span>{{ item.label }}</span>
+            </button>
+          </div>
+        </div>
+        <div v-else class="useful-grid">
           <a-card class="useful-agenda" role="region" aria-labelledby="home-schedule-heading">
             <template #title><h3 id="home-schedule-heading">Расписание занятий</h3></template>
             <template #extra>
@@ -671,6 +871,7 @@ function exitSearch(event) {
     </div>
     <DesktopServiceDialog :service="serviceDetails" :now="now" :authenticated="authenticated" @close="serviceDetails = null"
       @login="serviceDetails = null; emit('login')" @open-request="(id) => emit('open-request', id)" />
+    <TeacherDialogs :dialog="teacherDialog" @close="teacherDialog = null" />
   </div>
 </template>
 

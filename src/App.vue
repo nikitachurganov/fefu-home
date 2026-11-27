@@ -9,7 +9,7 @@ import NotificationsPage from './components/NotificationsPage.vue'
 import ProfilePage from './components/ProfilePage.vue'
 import ProfileMenu from './components/ProfileMenu.vue'
 import AdminSidebarSections from './components/AdminSidebarSections.vue'
-import { role, roleOptions } from './data/userStore'
+import { isSystemAdmin, isTeacher, role, roleOptions } from './data/userStore'
 import ScannerFlow from './components/scanner/ScannerFlow.vue'
 import FeedbackSheet from './components/FeedbackSheet.vue'
 import StudentCodeSheet from './components/StudentCodeSheet.vue'
@@ -115,6 +115,8 @@ const activityGroups = computed(() => {
   const current = { title: 'Текущие активности', items: [] }
   for (const request of requests.value) {
     if (request.status !== 'active') continue
+    // Студенческие пары (sessionState) преподавателю не нужны: его пара — на плашке в DesktopHome.
+    if (isTeacher.value && request.sessionState) continue
     if (!timerLabel(request, now.value).overdue) current.items.push(request)
     else if (['tmc', 'equipment', 'workplace'].includes(request.source)) overdue.items.push(request)
   }
@@ -137,6 +139,12 @@ const navigation = [
   { id: 'requests', label: 'Заявки', icon: documentIcon },
   { id: 'notifications', label: 'Уведомления', icon: alertIcon },
   { id: 'profile', label: 'Профиль', icon: profileIcon },
+]
+
+// Раздел «Обучение» в боковом меню преподавателя — как в кабинете преподавателя.
+const graduationIcon = '<path fill="currentColor" d="M12 3.2 1.6 8.6 12 14l10.4-5.4zM5.5 11.7V16c0 1.9 2.9 3.6 6.5 3.6s6.5-1.7 6.5-3.6v-4.3L12 15.1zM20.6 9.9h1.5V16h-1.5z"/>'
+const teacherSections = [
+  { label: 'Обучение', svg: graduationIcon, open: true, children: ['Мои занятия', 'Расписание', 'Журналы'] },
 ]
 
 // На ПК «Уведомления» и «Профиль» переезжают в шапку, в боковом меню остаются остальные.
@@ -232,7 +240,7 @@ function openService(label) {
         <a-button v-if="!isDesktop" type="text" class="header-button" aria-label="Открыть QR-сканер" @click="scannerOpen = true">
           <img :src="scannerIcon" alt="" aria-hidden="true" />
         </a-button>
-        <a-select v-if="isDesktop && isAuthenticated" v-model:value="role" class="header-role-selector" :options="roleOptions" aria-label="Роль" />
+        <a-select v-if="isDesktop && isAuthenticated" v-model:value="role" class="header-role-selector" :options="roleOptions" show-search option-filter-prop="label" :popup-match-select-width="320" aria-label="Роль" />
         <a-button type="text" class="header-button" aria-label="Обратная связь" @click="feedbackOpen = true">
           <img :src="helpIcon" alt="" aria-hidden="true" />
         </a-button>
@@ -498,10 +506,14 @@ function openService(label) {
         </button>
       </div>
       <nav class="desktop-sidebar-nav" aria-label="Основная навигация">
-        <button v-for="item in (role === 'system_admin' ? sideNavigation.filter(item => item.id === 'home') : sideNavigation)" :key="item.id" type="button" class="desktop-sidebar-item" :class="{ active: activeNav === item.id }" :aria-current="activeNav === item.id ? 'page' : undefined" :title="sidebarCollapsed ? item.label : undefined" @click="selectNav(item.id)">
-          <img :src="item.icon" alt="" /><span v-if="!sidebarCollapsed">{{ item.label }}</span>
-        </button>
-        <AdminSidebarSections v-if="role === 'system_admin'" :collapsed="sidebarCollapsed" @expand="sidebarCollapsed = false" />
+        <template v-for="item in (isSystemAdmin ? sideNavigation.filter(item => item.id === 'home') : sideNavigation)" :key="item.id">
+          <button type="button" class="desktop-sidebar-item" :class="{ active: activeNav === item.id }" :aria-current="activeNav === item.id ? 'page' : undefined" :title="sidebarCollapsed ? item.label : undefined" @click="selectNav(item.id)">
+            <img :src="item.icon" alt="" /><span v-if="!sidebarCollapsed">{{ item.label }}</span>
+          </button>
+          <!-- Преподавателю сразу после «Главной» — раздел «Обучение» кабинета преподавателя -->
+          <AdminSidebarSections v-if="item.id === 'home' && isTeacher && !isSystemAdmin" :sections="teacherSections" :collapsed="sidebarCollapsed" @expand="sidebarCollapsed = false" />
+        </template>
+        <AdminSidebarSections v-if="isSystemAdmin" :collapsed="sidebarCollapsed" @expand="sidebarCollapsed = false" />
       </nav>
       <div class="desktop-sidebar-footer">
         <div v-if="!sidebarCollapsed" class="sidebar-theme-selector" role="group" aria-label="Тема оформления">

@@ -52,7 +52,7 @@ import {
   reportProblem as markItemProblem,
 } from '../../data/sessionModel'
 import { confirmWorkplaceStart, finishAccept, finishIssue, finishWorkplace } from '../../data/staffActions'
-import { isStaff, isTeacher, role } from '../../data/userStore'
+import { isStaff, isTeacher, roleProfile } from '../../data/userStore'
 
 // Единый сканер: сам решает, что показать после кода. Шаги:
 //   camera → (manual) → result      — паспорта, чекин, отметка на паре и ошибки;
@@ -276,7 +276,7 @@ function openStaffRequest({ kind, id }) {
 
 // Режим «Инвентаризация»: код здания или помещения сразу открывает сессию, без экрана паспорта.
 function startInventoryByCode(text, source) {
-  const next = resolveInventoryStart(text, { role: role.value, source })
+  const next = resolveInventoryStart(text, { role: roleProfile.value, source })
   if (!next.ok) {
     showResult(next)
     return
@@ -303,7 +303,7 @@ function handle(text, source) {
     return
   }
 
-  let next = resolveScan(text, { role: role.value, source, checkActive: (parsed) => isActionCodeActive(parsed) })
+  let next = resolveScan(text, { role: roleProfile.value, source, checkActive: (parsed) => isActionCodeActive(parsed) })
 
   // ─── Паспорт помещения: экраны 2, 3, 4 (камера фоном, карточка поверх) ─────────
   if (next.ok && next.kind === 'passport' && next.asset?.type === 'room') {
@@ -357,7 +357,7 @@ function handle(text, source) {
 // Переход по связям паспорта: проходит те же проверки, что и скан, поэтому закрытое покажет «Нет доступа».
 function openLinked(id) {
   trail.value.push(result.value)
-  result.value = resolveScan(buildCode('passport', id), { role: role.value })
+  result.value = resolveScan(buildCode('passport', id), { role: roleProfile.value })
 }
 
 // Подсказки по последнему скану в сессии (тексты из макета «Сканер»).
@@ -392,7 +392,7 @@ function handleSessionScan(text, source) {
     // При инвентаризации неизвестный паспорт — не ошибка скана, а расхождение, поэтому проверку кода пропускаем.
     const parsed = parseCode(text)
     if (parsed?.kind !== 'passport') {
-      const scan = resolveScan(text, { role: role.value, mode: 'session', source })
+      const scan = resolveScan(text, { role: roleProfile.value, mode: 'session', source })
       showScanError(scan.ok ? 'wrong-mode' : scan.error)
       return
     }
@@ -402,7 +402,7 @@ function handleSessionScan(text, source) {
     return
   }
 
-  const scan = resolveScan(text, { role: role.value, mode: 'session', source })
+  const scan = resolveScan(text, { role: roleProfile.value, mode: 'session', source })
   if (!scan.ok) {
     showScanError(scan.error)
     return

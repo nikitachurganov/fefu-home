@@ -4,10 +4,11 @@ import { message } from 'ant-design-vue'
 import { DownOutlined } from '@ant-design/icons-vue'
 import icons from '../data/adminIcons.json'
 
-const props = defineProps({ collapsed: Boolean })
+// sections — свой набор разделов (например, «Обучение» преподавателя); по умолчанию разделы админки.
+// У раздела может быть svg (готовая разметка иконки) вместо ключа icon и open: true — раскрыт сразу.
+const props = defineProps({ collapsed: Boolean, sections: { type: Array, default: null } })
 const emit = defineEmits(['expand'])
-const open = ref([])
-const sections = [
+const adminSections = [
   { label: 'Пульс кампуса', icon: 'pulse-24-filled', children: ['Общая сводка', 'Образовательный контур', 'Посещаемость пар', 'Кадровый контур', 'Помещения', 'Загрузка помещений', 'Основные средства', 'Пользователи и рабочие места', 'Научная деятельность', 'Учебный фонд', 'Энергопотребление'] },
   { label: 'Активы и объекты', icon: 'grid-24-filled', children: ['Активы', 'Точки интереса', 'Здания и сооружения'] },
   { label: 'Имущественный комплекс', icon: 'building-bank-24-filled', children: ['Помещения', 'Основные средства', 'Рабочие места', 'Системы объективного контроля'] },
@@ -19,6 +20,9 @@ const sections = [
   { label: 'Сообщения от пользователей', icon: 'chat-multiple-24-filled', children: ['Обратная связь', 'Ошибки в данных'] },
   { label: 'Настройки системы', icon: 'settings-24-filled', children: ['Роли', 'Типы и классы', 'Категории поиска', 'Постоянные ссылки'] },
 ]
+const sections = props.sections ?? adminSections
+const open = ref(sections.filter((item) => item.open).map((item) => item.label))
+const iconMarkup = (item) => item.svg ?? icons[item.icon]
 function select(item) {
   if (item.children) {
     if (props.collapsed) emit('expand')
@@ -38,11 +42,11 @@ function select(item) {
           </div>
         </template>
         <button type="button" class="desktop-sidebar-item admin-sidebar-item" :aria-label="item.label" aria-haspopup="true">
-          <svg class="admin-sidebar-icon" viewBox="0 0 24 24" aria-hidden="true" v-html="icons[item.icon]"></svg>
+          <svg class="admin-sidebar-icon" viewBox="0 0 24 24" aria-hidden="true" v-html="iconMarkup(item)"></svg>
         </button>
       </a-popover>
       <button v-else type="button" class="desktop-sidebar-item admin-sidebar-item" :title="collapsed ? item.label : undefined" :aria-label="item.label" :aria-expanded="item.children ? open.includes(item.label) : undefined" @click="select(item)">
-        <svg class="admin-sidebar-icon" viewBox="0 0 24 24" aria-hidden="true" v-html="icons[item.icon]"></svg>
+        <svg class="admin-sidebar-icon" viewBox="0 0 24 24" aria-hidden="true" v-html="iconMarkup(item)"></svg>
         <span v-if="!collapsed" class="admin-sidebar-label">{{ item.label }}</span>
         <DownOutlined v-if="!collapsed && item.children" class="admin-sidebar-chevron" :class="{ open: open.includes(item.label) }" />
       </button>
